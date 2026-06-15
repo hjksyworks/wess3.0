@@ -4,3 +4,12 @@ dist-ssr
 *.local
 .env
 .env.*
+
+# stale tsc emit artifacts (tsconfig.json has noEmit, but tsconfig.node.json
+# emits vite.config.js/.d.ts; these should not be committed)
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+vite.config.js
+vite.config.d.ts
+vite.config.js.map
