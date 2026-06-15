@@ -47,6 +47,7 @@ public class SecurityConfig {
                         .antMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .antMatchers("/api/auth/**").permitAll()
                         .antMatchers(HttpMethod.GET, "/api/journals/*/file").permitAll()
+                        .antMatchers(HttpMethod.HEAD, "/api/journals/*/file").permitAll()
                         .antMatchers(HttpMethod.POST, "/api/journals/*/callback").permitAll()
                         .antMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
                         .antMatchers(HttpMethod.POST, "/api/enrollments").hasAuthority("ROLE_ADMIN")
