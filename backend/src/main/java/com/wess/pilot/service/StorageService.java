@@ -9,6 +9,7 @@ import com.wess.pilot.config.StorageProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,6 +28,22 @@ public class StorageService {
 
     private final AmazonS3 amazonS3;
     private final StorageProperties storageProperties;
+
+    /**
+     * 애플리케이션 시작 시 설정된 버킷이 없으면 생성한다.
+     * (MinIO 볼륨이 초기화되거나 처음 배포되는 환경에서 버킷이 존재하지 않아
+     * putObject 가 NoSuchBucket 으로 실패하는 문제를 방지)
+     */
+    @PostConstruct
+    public void ensureBucketExists() {
+        String bucket = storageProperties.getBucket();
+        if (bucket == null || bucket.isEmpty()) {
+            return;
+        }
+        if (!amazonS3.doesBucketExistV2(bucket)) {
+            amazonS3.createBucket(bucket);
+        }
+    }
 
     public boolean exists(String key) {
         if (key == null) {
