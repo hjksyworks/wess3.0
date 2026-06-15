@@ -1,5 +1,6 @@
 package com.wess.pilot.service;
 
+import com.wess.pilot.config.OnlyOfficeProperties;
 import com.wess.pilot.domain.Enrollment;
 import com.wess.pilot.domain.FormTemplate;
 import com.wess.pilot.domain.Journal;
@@ -35,19 +36,33 @@ public class JournalService {
     private final FeedbackRepository feedbackRepository;
     private final StorageService storageService;
     private final RestTemplate restTemplate;
+    private final OnlyOfficeProperties onlyOfficeProperties;
 
     @Transactional(readOnly = true)
     public List<JournalDto> findByEnrollment(Long enrollmentId) {
         return journalRepository.findByEnrollmentId(enrollmentId).stream()
                 .sorted((a, b) -> Integer.compare(a.getWeek(), b.getWeek()))
-                .map(j -> JournalDto.from(j, feedbackRepository.findByJournalId(j.getId())))
+                .map(j -> applyInternalUrls(JournalDto.from(j, feedbackRepository.findByJournalId(j.getId()))))
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public JournalDto findById(Long id) {
         Journal journal = getJournalOrThrow(id);
-        return JournalDto.from(journal, feedbackRepository.findByJournalId(journal.getId()));
+        return applyInternalUrls(JournalDto.from(journal, feedbackRepository.findByJournalId(journal.getId())));
+    }
+
+    /**
+     * OnlyOffice 컨테이너가 직접 호출하는 documentUrl/callbackUrl 을 도커 내부망 주소로 덮어쓴다.
+     * nginx의 자체서명 인증서로 인한 DEPTH_ZERO_SELF_SIGNED_CERT 오류를 회피하기 위함.
+     */
+    private JournalDto applyInternalUrls(JournalDto dto) {
+        String base = onlyOfficeProperties.getInternalBackendUrl();
+        if (base != null && !base.isEmpty()) {
+            dto.setDocumentUrl(base + "/api/journals/" + dto.getId() + "/file");
+            dto.setCallbackUrl(base + "/api/journals/" + dto.getId() + "/callback");
+        }
+        return dto;
     }
 
     @Transactional
@@ -77,7 +92,7 @@ public class JournalService {
 
         journal.touch();
         Journal saved = journalRepository.save(journal);
-        return JournalDto.from(saved, feedbackRepository.findByJournalId(saved.getId()));
+        return applyInternalUrls(JournalDto.from(saved, feedbackRepository.findByJournalId(saved.getId())));
     }
 
     /** GET /api/journals/{id}/file — 일지 docx 스트리밍 (없으면 템플릿, 그것도 없으면 빈 docx) */

@@ -35,6 +35,10 @@ public class JournalDto {
     private String fileName;
     /** OnlyOffice document.key (저장될 때마다 갱신됨) */
     private String documentKey;
+    /** OnlyOffice 컨테이너가 문서를 다운로드할 내부 URL (자체서명 인증서 회피용 내부망 HTTP 주소) */
+    private String documentUrl;
+    /** OnlyOffice 컨테이너가 저장 콜백을 보낼 내부 URL */
+    private String callbackUrl;
 
     public static JournalDto from(Journal journal, Optional<Feedback> feedback) {
         JournalDto dto = new JournalDto();
@@ -49,6 +53,8 @@ public class JournalDto {
         dto.setStudentId(journal.getEnrollment().getStudent().getId());
         dto.setStudentName(journal.getEnrollment().getStudent().getName());
         dto.setFileUrl("/api/journals/" + journal.getId() + "/file");
+        dto.setDocumentUrl("/api/journals/" + journal.getId() + "/file");
+        dto.setCallbackUrl("/api/journals/" + journal.getId() + "/callback");
         dto.setFileName(journal.getFileName());
         dto.setDocumentKey("journal-" + journal.getId() + "-" + journal.getUpdatedAt().getEpochSecond());
         dto.setHasFeedback(feedback.isPresent());

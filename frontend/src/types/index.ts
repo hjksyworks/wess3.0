@@ -70,6 +70,10 @@ export interface Journal {
   fileName?: string;
   /** OnlyOffice document.key. 저장될 때마다 백엔드에서 새로 계산되어 내려온다 */
   documentKey?: string;
+  /** OnlyOffice 컨테이너가 직접 호출할 내부망 문서 URL (자체서명 인증서 회피용) */
+  documentUrl?: string;
+  /** OnlyOffice 컨테이너가 직접 호출할 내부망 콜백 URL */
+  callbackUrl?: string;
 }
 
 export interface Feedback {
