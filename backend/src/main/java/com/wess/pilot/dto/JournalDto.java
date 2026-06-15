@@ -56,7 +56,9 @@ public class JournalDto {
         dto.setDocumentUrl("/api/journals/" + journal.getId() + "/file");
         dto.setCallbackUrl("/api/journals/" + journal.getId() + "/callback");
         dto.setFileName(journal.getFileName());
-        dto.setDocumentKey("journal-" + journal.getId() + "-" + journal.getUpdatedAt().getEpochSecond());
+        // v2: 내부망 documentUrl/callbackUrl 적용으로 키 형식 변경 - OnlyOffice docservice가
+        // 이전(https, 자체서명 인증서) 콜백 정보를 캐시한 키를 재사용하지 않도록 강제 무효화
+        dto.setDocumentKey("journal-" + journal.getId() + "-" + journal.getUpdatedAt().getEpochSecond() + "-v2");
         dto.setHasFeedback(feedback.isPresent());
         feedback.ifPresent(f -> dto.setFeedbackContent(f.getContent()));
         return dto;
