@@ -50,7 +50,7 @@ export default function Login() {
               <Label htmlFor="loginId">아이디</Label>
               <Input
                 id="loginId"
-                placeholder="student1 / supervisor1 / admin1"
+                placeholder="아이디"
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
                 autoComplete="username"
@@ -73,10 +73,6 @@ export default function Login() {
               로그인
             </Button>
           </form>
-          <p className="text-xs text-muted-foreground text-center mt-4">
-            백엔드 연동 전에는 아이디 접두사(student / supervisor / admin)로 역할이 결정되는 데모
-            계정으로 동작합니다.
-          </p>
           <p className="text-center mt-4">
             <Link to="/" className="text-sm text-primary hover:underline">
               홈으로 돌아가기

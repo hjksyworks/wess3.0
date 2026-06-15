@@ -9,13 +9,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { mockAdminStats, mockAdminStudents, mockFormTemplates } from "@/lib/mockData";
-import type { AdminStats, AdminStudent, FormField, FormTemplate } from "@/types";
+import type { Account, AdminStats, AdminStudent, Enrollment, FormField, FormTemplate } from "@/types";
 import { BarChart3, ClipboardList, Download, FileText, Plus, Trash2, Users } from "lucide-react";
 
 export default function AdminDashboard() {
   const [stats, setStats] = React.useState<AdminStats>(mockAdminStats);
   const [students, setStudents] = React.useState<AdminStudent[]>(mockAdminStudents);
   const [templates, setTemplates] = React.useState<FormTemplate[]>(mockFormTemplates);
+  const [accounts, setAccounts] = React.useState<Account[]>([]);
+  const [enrollments, setEnrollments] = React.useState<Enrollment[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const [newTemplateOpen, setNewTemplateOpen] = React.useState(false);
@@ -42,6 +44,18 @@ export default function AdminDashboard() {
         setTemplates(mockFormTemplates);
       } finally {
         setLoading(false);
+      }
+
+      try {
+        const [accountsRes, enrollmentsRes] = await Promise.all([
+          api.get("/admin/accounts"),
+          api.get("/enrollments"),
+        ]);
+        setAccounts(accountsRes.data as Account[]);
+        setEnrollments(enrollmentsRes.data as Enrollment[]);
+      } catch {
+        setAccounts([]);
+        setEnrollments([]);
       }
     })();
   }, []);
@@ -127,6 +141,7 @@ export default function AdminDashboard() {
           <TabsList>
             <TabsTrigger value="students">학생현황</TabsTrigger>
             <TabsTrigger value="templates">양식관리</TabsTrigger>
+            <TabsTrigger value="accounts">계정/배정관리</TabsTrigger>
             <TabsTrigger value="export">일괄다운로드</TabsTrigger>
           </TabsList>
 
@@ -207,6 +222,17 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
             ))}
+          </TabsContent>
+
+          <TabsContent value="accounts" className="mt-4">
+            <AccountsAssignmentsPanel
+              students={students}
+              templates={templates}
+              accounts={accounts}
+              enrollments={enrollments}
+              onAccountCreated={(account) => setAccounts((prev) => [...prev, account])}
+              onEnrollmentCreated={(enrollment) => setEnrollments((prev) => [...prev, enrollment])}
+            />
           </TabsContent>
 
           <TabsContent value="export" className="mt-4">
@@ -428,5 +454,417 @@ function NewTemplateDialog({
         </div>
       </div>
     </Dialog>
+  );
+}
+
+const roleLabel: Record<string, string> = {
+  STUDENT: "학생",
+  SUPERVISOR: "지도자",
+  ADMIN: "관리자",
+};
+
+function AccountsAssignmentsPanel({
+  students,
+  templates,
+  accounts,
+  enrollments,
+  onAccountCreated,
+  onEnrollmentCreated,
+}: {
+  students: AdminStudent[];
+  templates: FormTemplate[];
+  accounts: Account[];
+  enrollments: Enrollment[];
+  onAccountCreated: (account: Account) => void;
+  onEnrollmentCreated: (enrollment: Enrollment) => void;
+}) {
+  // 계정 생성 폼
+  const [loginId, setLoginId] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [accountName, setAccountName] = React.useState("");
+  const [role, setRole] = React.useState<"STUDENT" | "SUPERVISOR" | "ADMIN">("STUDENT");
+  const [studentMode, setStudentMode] = React.useState<"existing" | "new">("new");
+  const [linkStudentId, setLinkStudentId] = React.useState<number | "">("");
+  const [major, setMajor] = React.useState("");
+  const [studentYear, setStudentYear] = React.useState(1);
+  const [accountSubmitting, setAccountSubmitting] = React.useState(false);
+  const [accountError, setAccountError] = React.useState("");
+
+  const linkedStudentIds = React.useMemo(
+    () => new Set(accounts.filter((a) => a.studentId != null).map((a) => a.studentId)),
+    [accounts],
+  );
+  const unlinkedStudents = students.filter((s) => !linkedStudentIds.has(s.id));
+
+  async function handleCreateAccount() {
+    if (!loginId.trim() || !password.trim() || !accountName.trim()) {
+      setAccountError("아이디, 비밀번호, 이름을 입력해주세요.");
+      return;
+    }
+    if (role === "STUDENT" && studentMode === "existing" && !linkStudentId) {
+      setAccountError("연결할 학생을 선택해주세요.");
+      return;
+    }
+
+    setAccountSubmitting(true);
+    setAccountError("");
+    try {
+      const payload: Record<string, unknown> = {
+        loginId: loginId.trim(),
+        password,
+        name: accountName.trim(),
+        role,
+      };
+      if (role === "STUDENT") {
+        if (studentMode === "existing") {
+          payload.studentId = linkStudentId;
+        } else {
+          payload.major = major.trim() || undefined;
+          payload.studentYear = studentYear;
+        }
+      }
+      const res = await api.post("/admin/accounts", payload);
+      onAccountCreated(res.data as Account);
+      setLoginId("");
+      setPassword("");
+      setAccountName("");
+      setMajor("");
+      setStudentYear(1);
+      setLinkStudentId("");
+      setStudentMode("new");
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "계정 생성에 실패했습니다.";
+      setAccountError(message);
+    } finally {
+      setAccountSubmitting(false);
+    }
+  }
+
+  // 실습 배정 생성 폼
+  const [enrStudentId, setEnrStudentId] = React.useState<number | "">("");
+  const [enrTemplateId, setEnrTemplateId] = React.useState<number | "">("");
+  const [enrYear, setEnrYear] = React.useState(new Date().getFullYear());
+  const [enrSemester, setEnrSemester] = React.useState<"1" | "2">("1");
+  const [enrSubject, setEnrSubject] = React.useState("");
+  const [enrPracticeName, setEnrPracticeName] = React.useState("");
+  const [enrSupervisorName, setEnrSupervisorName] = React.useState("");
+  const [enrTotalWeeks, setEnrTotalWeeks] = React.useState(8);
+  const [enrSubmitting, setEnrSubmitting] = React.useState(false);
+  const [enrError, setEnrError] = React.useState("");
+
+  async function handleCreateEnrollment() {
+    if (!enrStudentId || !enrTemplateId || !enrSubject.trim()) {
+      setEnrError("학생, 양식, 교과목을 선택/입력해주세요.");
+      return;
+    }
+    setEnrSubmitting(true);
+    setEnrError("");
+    try {
+      const res = await api.post("/enrollments", {
+        studentId: enrStudentId,
+        formTemplateId: enrTemplateId,
+        year: enrYear,
+        semester: enrSemester,
+        subject: enrSubject.trim(),
+        practiceName: enrPracticeName.trim() || undefined,
+        supervisorName: enrSupervisorName.trim() || undefined,
+        totalWeeks: enrTotalWeeks,
+      });
+      onEnrollmentCreated(res.data as Enrollment);
+      setEnrSubject("");
+      setEnrPracticeName("");
+      setEnrSupervisorName("");
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "실습 배정 생성에 실패했습니다.";
+      setEnrError(message);
+    } finally {
+      setEnrSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">계정 생성</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 max-w-xl">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>아이디</Label>
+              <Input value={loginId} onChange={(e) => setLoginId(e.target.value)} placeholder="로그인 아이디" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>비밀번호</Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="비밀번호"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>이름</Label>
+              <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="이름" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>권한</Label>
+              <Select value={role} onChange={(e) => setRole(e.target.value as typeof role)}>
+                <option value="STUDENT">학생</option>
+                <option value="SUPERVISOR">지도자</option>
+                <option value="ADMIN">관리자</option>
+              </Select>
+            </div>
+          </div>
+
+          {role === "STUDENT" && (
+            <div className="space-y-3 rounded-md border border-slate-200 p-3">
+              <div className="flex items-center gap-4 text-sm">
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="studentMode"
+                    checked={studentMode === "new"}
+                    onChange={() => setStudentMode("new")}
+                  />
+                  신규 학생 등록
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="studentMode"
+                    checked={studentMode === "existing"}
+                    onChange={() => setStudentMode("existing")}
+                  />
+                  기존 학생에 연결
+                </label>
+              </div>
+
+              {studentMode === "new" ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>전공</Label>
+                    <Input value={major} onChange={(e) => setMajor(e.target.value)} placeholder="예: 컴퓨터공학과" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>학년</Label>
+                    <Select value={studentYear} onChange={(e) => setStudentYear(Number(e.target.value))}>
+                      <option value={1}>1학년</option>
+                      <option value={2}>2학년</option>
+                      <option value={3}>3학년</option>
+                      <option value={4}>4학년</option>
+                    </Select>
+                  </div>
+                  <p className="col-span-2 text-xs text-slate-400">
+                    위에서 입력한 이름으로 새 학생 정보가 함께 생성됩니다.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label>연결할 학생</Label>
+                  <Select
+                    value={linkStudentId}
+                    onChange={(e) => setLinkStudentId(e.target.value ? Number(e.target.value) : "")}
+                  >
+                    <option value="">선택해주세요</option>
+                    {unlinkedStudents.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.major} · {s.year}학년)
+                      </option>
+                    ))}
+                  </Select>
+                  {unlinkedStudents.length === 0 && (
+                    <p className="text-xs text-slate-400">계정이 연결되지 않은 학생이 없습니다.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {accountError && <p className="text-sm text-destructive">{accountError}</p>}
+          <Button onClick={handleCreateAccount} disabled={accountSubmitting}>
+            <Plus className="w-4 h-4" />
+            계정 생성
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">계정 목록</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500 border-b border-slate-200">
+                  <th className="py-2 pr-4">아이디</th>
+                  <th className="py-2 pr-4">이름</th>
+                  <th className="py-2 pr-4">권한</th>
+                  <th className="py-2 pr-4">연결된 학생</th>
+                  <th className="py-2 pr-4">생성일</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accounts.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-4 text-center text-slate-400">
+                      등록된 계정이 없습니다.
+                    </td>
+                  </tr>
+                ) : (
+                  accounts.map((a) => (
+                    <tr key={a.id} className="border-b border-slate-100 last:border-0">
+                      <td className="py-3 pr-4 font-medium">{a.loginId}</td>
+                      <td className="py-3 pr-4">{a.name}</td>
+                      <td className="py-3 pr-4 text-slate-500">{roleLabel[a.role] ?? a.role}</td>
+                      <td className="py-3 pr-4 text-slate-500">{a.studentName ?? "-"}</td>
+                      <td className="py-3 pr-4 text-slate-500">{a.createdDate}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">실습 배정 생성</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 max-w-xl">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>학생</Label>
+              <Select
+                value={enrStudentId}
+                onChange={(e) => setEnrStudentId(e.target.value ? Number(e.target.value) : "")}
+              >
+                <option value="">선택해주세요</option>
+                {students.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.major} · {s.year}학년)
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>양식</Label>
+              <Select
+                value={enrTemplateId}
+                onChange={(e) => setEnrTemplateId(e.target.value ? Number(e.target.value) : "")}
+              >
+                <option value="">선택해주세요</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.year}년 {t.semester}학기 · {t.subject})
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label>학년도</Label>
+              <Input type="number" value={enrYear} onChange={(e) => setEnrYear(Number(e.target.value))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>학기</Label>
+              <Select value={enrSemester} onChange={(e) => setEnrSemester(e.target.value as "1" | "2")}>
+                <option value="1">1학기</option>
+                <option value="2">2학기</option>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>총 주차</Label>
+              <Input
+                type="number"
+                min={1}
+                value={enrTotalWeeks}
+                onChange={(e) => setEnrTotalWeeks(Number(e.target.value))}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>교과목</Label>
+            <Input value={enrSubject} onChange={(e) => setEnrSubject(e.target.value)} placeholder="예: 현장실습" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>실습 기관/부서명</Label>
+              <Input
+                value={enrPracticeName}
+                onChange={(e) => setEnrPracticeName(e.target.value)}
+                placeholder="예: (주)테크놀로지 백엔드 개발팀"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>담당 지도자명</Label>
+              <Input
+                value={enrSupervisorName}
+                onChange={(e) => setEnrSupervisorName(e.target.value)}
+                placeholder="예: 김지은 교수"
+              />
+            </div>
+          </div>
+          {enrError && <p className="text-sm text-destructive">{enrError}</p>}
+          <Button onClick={handleCreateEnrollment} disabled={enrSubmitting}>
+            <Plus className="w-4 h-4" />
+            실습 배정 생성
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">실습 배정 목록</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500 border-b border-slate-200">
+                  <th className="py-2 pr-4">학생</th>
+                  <th className="py-2 pr-4">학년도/학기</th>
+                  <th className="py-2 pr-4">교과목</th>
+                  <th className="py-2 pr-4">양식</th>
+                  <th className="py-2 pr-4">총 주차</th>
+                  <th className="py-2 pr-4">지도자</th>
+                </tr>
+              </thead>
+              <tbody>
+                {enrollments.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-4 text-center text-slate-400">
+                      등록된 실습 배정이 없습니다.
+                    </td>
+                  </tr>
+                ) : (
+                  enrollments.map((e) => (
+                    <tr key={e.id} className="border-b border-slate-100 last:border-0">
+                      <td className="py-3 pr-4 font-medium">{e.studentName ?? "-"}</td>
+                      <td className="py-3 pr-4 text-slate-500">
+                        {e.year}년 {e.semester}학기
+                      </td>
+                      <td className="py-3 pr-4 text-slate-500">{e.subject}</td>
+                      <td className="py-3 pr-4 text-slate-500">{e.formTemplate?.name ?? "-"}</td>
+                      <td className="py-3 pr-4 text-slate-500">{e.totalWeeks}주</td>
+                      <td className="py-3 pr-4 text-slate-500">{e.supervisorName ?? "-"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

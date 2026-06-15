@@ -8,6 +8,8 @@ export interface AuthUser {
   id: number;
   name: string;
   role: Role;
+  /** role === "STUDENT" 인 경우 연결된 학생 id */
+  studentId?: number;
 }
 
 /** 관리자가 양식관리에서 정의하는 작성 항목 */
@@ -42,6 +44,10 @@ export interface Enrollment {
   practiceName: string;
   totalWeeks: number;
   formTemplate: FormTemplate;
+  studentId?: number;
+  studentName?: string;
+  supervisorName?: string;
+  createdDate?: string;
 }
 
 export interface Journal {
@@ -92,4 +98,15 @@ export interface ExportOptions {
   year: number;
   semester: "1" | "2";
   includeFeedback: boolean;
+}
+
+/** 로그인 계정 (관리자 화면의 계정/배정관리 탭) */
+export interface Account {
+  id: number;
+  loginId: string;
+  name: string;
+  role: Role;
+  studentId?: number;
+  studentName?: string;
+  createdDate: string;
 }
