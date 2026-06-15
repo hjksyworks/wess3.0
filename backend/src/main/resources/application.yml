@@ -32,3 +32,7 @@ wess:
     # 백엔드가 OnlyOffice를 호출할 때 사용하는 내부 URL (변환 서비스 등)
     internal-backend-url: ${BACKEND_INTERNAL_URL:http://springboot-app:8080}
     convert-path: /ConvertService.ashx
+  jwt:
+    # 운영 환경에서는 WESS_JWT_SECRET 환경변수로 반드시 교체할 것 (HS256, 32바이트 이상)
+    secret: ${WESS_JWT_SECRET:wess-pilot-default-jwt-secret-key-please-change-in-production-32bytes}
+    expiration-ms: ${WESS_JWT_EXPIRATION_MS:86400000}
