@@ -54,6 +54,10 @@ export interface Journal {
   studentName?: string;
   /** 지도자 화면에서 작성/조회 중인 피드백 내용 (REVIEWED 상태인 경우 기존 피드백) */
   feedbackContent?: string;
+  /** 일지 본문 파일(docx)에 접근하기 위한 경로 (OnlyOffice 에디터에 전달) */
+  fileUrl?: string;
+  /** 에디터에 표시될 파일명 */
+  fileName?: string;
 }
 
 export interface Feedback {

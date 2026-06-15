@@ -34,6 +34,18 @@ export const mockEnrollment: Enrollment = {
   formTemplate: mockFormTemplate,
 };
 
+/** 일지 본문 파일(docx)의 MinIO 경로 (WESS_구성현황.md의 객체 경로 규칙 참고) */
+function journalFileUrl(
+  year: number,
+  semester: string,
+  subject: string,
+  week: number,
+  studentId?: number,
+): string {
+  const studentSegment = studentId ? `/student_${studentId}` : "";
+  return `/minio/wess-bucket/${year}/${semester}/${encodeURIComponent(subject)}${studentSegment}/week_${week}/log_file.docx`;
+}
+
 function weekDates(week: number): { startDate: string; endDate: string } {
   const base = new Date(2026, 2, 2); // 2026-03-02 (월)
   const start = new Date(base);
@@ -64,6 +76,8 @@ export function buildMockJournals(): Journal[] {
           Number(startDate.slice(8, 10)) + 5,
         ).padStart(2, "0")}`,
         hasFeedback: week <= 2,
+        fileUrl: journalFileUrl(mockEnrollment.year, mockEnrollment.semester, mockEnrollment.subject, week),
+        fileName: `${week}주차_일지.docx`,
       });
     } else if (week === 4) {
       journals.push({
@@ -78,6 +92,8 @@ export function buildMockJournals(): Journal[] {
           thoughts: "",
         },
         hasFeedback: false,
+        fileUrl: journalFileUrl(mockEnrollment.year, mockEnrollment.semester, mockEnrollment.subject, week),
+        fileName: `${week}주차_일지.docx`,
       });
     } else {
       journals.push({
@@ -88,6 +104,8 @@ export function buildMockJournals(): Journal[] {
         endDate,
         content: {},
         hasFeedback: false,
+        fileUrl: journalFileUrl(mockEnrollment.year, mockEnrollment.semester, mockEnrollment.subject, week),
+        fileName: `${week}주차_일지.docx`,
       });
     }
   }
@@ -155,6 +173,14 @@ export function buildMockSupervisorJournals(): Journal[] {
           status === "REVIEWED" ? `${name} 학생, ${week}주차 일지 잘 작성했습니다. 계속 수고해주세요.` : undefined,
         studentId: mockAdminStudents[idx].id,
         studentName: name,
+        fileUrl: journalFileUrl(
+          mockEnrollment.year,
+          mockEnrollment.semester,
+          mockEnrollment.subject,
+          week,
+          mockAdminStudents[idx].id,
+        ),
+        fileName: `${name}_${week}주차_일지.docx`,
       });
     }
   });

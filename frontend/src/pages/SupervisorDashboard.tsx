@@ -1,5 +1,6 @@
 import * as React from "react";
 import { DashboardHeader } from "@/components/DashboardHeader";
+import { OnlyOfficeEditor } from "@/components/OnlyOfficeEditor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -215,9 +216,15 @@ export default function SupervisorDashboard() {
 
           {/* 본문 */}
           <div className="flex-1 flex overflow-hidden">
-            <div className="flex-1 flex flex-col gap-4 p-6 overflow-y-auto">
-              <div className="flex-1 border-2 border-dashed border-slate-300 rounded-md flex items-center justify-center text-slate-400 text-lg font-semibold min-h-[400px]">
-                OnlyOffice 에디터 영역
+            <div className="flex-1 flex flex-col gap-4 p-6 overflow-hidden">
+              <div className="flex-1 min-h-[400px] rounded-md border border-slate-200 overflow-hidden">
+                <OnlyOfficeEditor
+                  documentUrl={`${window.location.origin}${detail.fileUrl ?? ""}`}
+                  documentKey={`journal-${detail.id}-${detail.status}-${detail.submittedDate ?? detail.startDate ?? ""}`}
+                  title={detail.fileName ?? `${detail.week}주차_일지.docx`}
+                  mode="view"
+                  className="h-full w-full"
+                />
               </div>
             </div>
 
