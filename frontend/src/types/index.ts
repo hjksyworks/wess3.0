@@ -27,6 +27,10 @@ export interface FormTemplate {
   name: string;
   fields: FormField[];
   createdDate: string;
+  /** 첨부된 docx 양식 원본의 MinIO 객체 경로 (선택) */
+  templateFileKey?: string;
+  /** 첨부된 docx 양식 원본 파일명 (선택) */
+  templateFileName?: string;
 }
 
 /** 학생의 학기별 실습 배정 정보 */
@@ -58,6 +62,8 @@ export interface Journal {
   fileUrl?: string;
   /** 에디터에 표시될 파일명 */
   fileName?: string;
+  /** OnlyOffice document.key. 저장될 때마다 백엔드에서 새로 계산되어 내려온다 */
+  documentKey?: string;
 }
 
 export interface Feedback {

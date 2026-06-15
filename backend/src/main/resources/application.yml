@@ -1,0 +1,34 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres-db:5432/wess}
+    username: ${SPRING_DATASOURCE_USERNAME:wess}
+    password: ${SPRING_DATASOURCE_PASSWORD:your_secure_password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+# MinIO (S3 호환 스토리지)
+wess:
+  storage:
+    endpoint: ${MINIO_ENDPOINT:http://minio-storage:9000}
+    access-key: ${MINIO_ACCESS_KEY:admin_access_key}
+    secret-key: ${MINIO_SECRET_KEY:admin_secret_key}
+    bucket: ${MINIO_BUCKET:wess-bucket}
+  onlyoffice:
+    # OnlyOffice Document Server가 백엔드를 호출할 때 사용하는 내부 URL (도커 네트워크 내부)
+    internal-document-server-url: ${ONLYOFFICE_INTERNAL_URL:http://onlyoffice-app}
+    # 백엔드가 OnlyOffice를 호출할 때 사용하는 내부 URL (변환 서비스 등)
+    internal-backend-url: ${BACKEND_INTERNAL_URL:http://springboot-app:8080}
+    convert-path: /ConvertService.ashx

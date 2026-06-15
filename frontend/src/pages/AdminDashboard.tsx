@@ -198,6 +198,12 @@ export default function AdminDashboard() {
                       </li>
                     ))}
                   </ul>
+                  {t.templateFileName && (
+                    <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                      <FileText className="w-3.5 h-3.5" />
+                      첨부 양식: {t.templateFileName}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -273,6 +279,7 @@ function NewTemplateDialog({
   const [fields, setFields] = React.useState<FormField[]>([
     { key: "tasks", label: "주요 수행 업무", type: "textarea" },
   ]);
+  const [templateFile, setTemplateFile] = React.useState<File | null>(null);
 
   function addField() {
     setFields((f) => [...f, { key: "", label: "", type: "text" }]);
@@ -291,7 +298,7 @@ function NewTemplateDialog({
       alert("양식 이름, 교과목, 모든 항목의 키/이름을 입력해주세요.");
       return;
     }
-    const template: FormTemplate = {
+    let template: FormTemplate = {
       id: nextId,
       year,
       semester,
@@ -301,16 +308,33 @@ function NewTemplateDialog({
       createdDate: new Date().toISOString().slice(0, 10),
     };
     try {
-      await api.post("/form-templates", template);
+      const res = await api.post("/form-templates", template);
+      template = res.data as FormTemplate;
     } catch {
       // 백엔드 미연동 시 화면 상태만 갱신
     }
+
+    if (templateFile) {
+      try {
+        const formData = new FormData();
+        formData.append("file", templateFile);
+        const res = await api.post(`/form-templates/${template.id}/file`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        template = res.data as FormTemplate;
+      } catch {
+        // 백엔드 미연동 시 파일명만 화면에 표시
+        template = { ...template, templateFileName: templateFile.name };
+      }
+    }
+
     onCreate(template);
     setYear(new Date().getFullYear());
     setSemester("1");
     setSubject("");
     setName("");
     setFields([{ key: "tasks", label: "주요 수행 업무", type: "textarea" }]);
+    setTemplateFile(null);
   }
 
   return (
@@ -348,6 +372,17 @@ function NewTemplateDialog({
         <div className="space-y-1.5">
           <Label>양식 이름</Label>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 2026학년도 1학기 현장실습 일지" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>양식 파일 (docx, 선택)</Label>
+          <Input
+            type="file"
+            accept=".docx"
+            onChange={(e) => setTemplateFile(e.target.files?.[0] ?? null)}
+          />
+          <p className="text-xs text-slate-400">
+            첨부하면 학생이 일지를 처음 작성할 때 이 docx 양식을 기반으로 시작합니다.
+          </p>
         </div>
 
         <div className="space-y-2">

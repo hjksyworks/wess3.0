@@ -7,3 +7,9 @@ frontend/.env.*
 frontend/tsconfig.tsbuildinfo
 frontend/tsconfig.node.tsbuildinfo
 frontend.zip
+
+# 루트에 잘못 생성된 stray 파일
+/package-lock.json
+
+# 백엔드 Maven 빌드 산출물
+backend/target

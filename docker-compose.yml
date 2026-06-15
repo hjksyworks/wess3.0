@@ -1,0 +1,90 @@
+# WESS 파일럿 통합 docker-compose 설정
+# 서버(11.11.11.99) 배포 경로: /data/pilot/wess3.0/docker-compose.yml (git clone 위치)
+# 기존 placeholder(eclipse-temurin:8-jdk + app.jar 단독 마운트) 대신
+# backend/ 소스를 직접 빌드하도록 변경. 프론트엔드는 정적 빌드 결과를 nginx가 서빙.
+#
+# 주의: nginx.conf, ssl/, ds-example.conf, minio_data/, pg_data/ 는 git 저장소에 포함하지 않고
+# 기존 /data/pilot/ (이 파일의 상위 디렉토리)에 있는 것을 ../ 로 참조한다.
+
+services:
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+      - "9001:9001"   # MinIO 콘솔 전용 포트
+    volumes:
+      - ../nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../ssl:/etc/nginx/ssl:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro   # React(Vite) 빌드 결과물 (npm run build)
+    depends_on:
+      - springboot-app
+      - onlyoffice-app
+    networks:
+      - pilot-network
+
+  springboot-app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # image: eclipse-temurin:8-jdk  # (기존 placeholder 방식은 더 이상 사용하지 않음)
+    environment:
+      # --- DB (application.yml 기본값과 일치시킬 것) ---
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/wess
+      - SPRING_DATASOURCE_USERNAME=wess
+      - SPRING_DATASOURCE_PASSWORD=your_secure_password   # postgres-db의 POSTGRES_PASSWORD와 동일해야 함
+      # --- MinIO ---
+      - MINIO_ENDPOINT=http://minio-storage:9000
+      - MINIO_ACCESS_KEY=admin_access_key                 # minio-storage의 MINIO_ROOT_USER와 동일
+      - MINIO_SECRET_KEY=admin_secret_key                 # minio-storage의 MINIO_ROOT_PASSWORD와 동일
+      - MINIO_BUCKET=wess-bucket
+      # --- OnlyOffice ---
+      - ONLYOFFICE_INTERNAL_URL=http://onlyoffice-app
+      - BACKEND_INTERNAL_URL=http://springboot-app:8080
+    depends_on:
+      - postgres-db
+      - minio-storage
+    networks:
+      - pilot-network
+
+  onlyoffice-app:
+    image: onlyoffice/documentserver:latest
+    ports:
+      - "8000:80"   # 호스트 8000 -> 컨테이너 80 (테스트/example 페이지 직접 접속용)
+    environment:
+      - JWT_ENABLED=false
+      - NODE_TLS_REJECT_UNAUTHORIZED=0   # 내부 자체서명 인증서 허용 (파일럿용)
+      - JWT_SECRET=cetis_office_secret_key
+    volumes:
+      - ../ds-example.conf:/etc/supervisor/conf.d/ds-example.conf:ro   # ds:example autostart=true 영구 적용
+    networks:
+      - pilot-network
+
+  minio-storage:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=admin_access_key
+      - MINIO_ROOT_PASSWORD=admin_secret_key
+      - MINIO_BROWSER_REDIRECT_URL=https://11.11.11.99:9001/
+      # MINIO_SERVER_URL 사용하지 않음 (설정 시 콘솔 로그인 오류 발생했던 이력 있음)
+    volumes:
+      - ../minio_data:/data
+    networks:
+      - pilot-network
+
+  postgres-db:
+    image: postgres:15
+    command: postgres -c password_encryption=md5
+    environment:
+      - POSTGRES_USER=wess
+      - POSTGRES_PASSWORD=your_secure_password   # springboot-app의 SPRING_DATASOURCE_PASSWORD와 동일해야 함, 운영 전 변경 필요
+      - POSTGRES_DB=wess
+    volumes:
+      - ../pg_data:/var/lib/postgresql/data
+    networks:
+      - pilot-network
+
+networks:
+  pilot-network:
+    driver: bridge
