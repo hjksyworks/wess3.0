@@ -449,7 +449,7 @@ function TemplateEditPanel({
                         type="number"
                         min={10}
                         max={100}
-                        value={field.width ?? 100}
+                        value={field.width || 100}
                         onChange={(e) => updateField(idx, { width: Math.min(100, Math.max(10, Number(e.target.value))) })}
                         className="h-7 text-xs text-center w-full"
                       />
@@ -459,7 +459,7 @@ function TemplateEditPanel({
                         type="number"
                         min={20}
                         max={300}
-                        value={field.height ?? 40}
+                        value={field.height || 40}
                         onChange={(e) => updateField(idx, { height: Math.min(300, Math.max(20, Number(e.target.value))) })}
                         className="h-7 text-xs text-center w-full"
                       />
@@ -739,7 +739,7 @@ function NewTemplateWizard({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl w-full max-h-[90vh] flex flex-col" style={{ maxWidth: "1700px" }}>
         {/* 헤더 */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
           <div className="flex items-center gap-3">
@@ -901,7 +901,7 @@ function NewTemplateWizard({
                               type="number"
                               min={10}
                               max={100}
-                              value={field.width ?? 100}
+                              value={field.width || 100}
                               onChange={(e) => updateField(idx, { width: Math.min(100, Math.max(10, Number(e.target.value))) })}
                               className="h-7 text-xs text-center w-full"
                             />
@@ -911,7 +911,7 @@ function NewTemplateWizard({
                               type="number"
                               min={20}
                               max={300}
-                              value={field.height ?? 40}
+                              value={field.height || 40}
                               onChange={(e) => updateField(idx, { height: Math.min(300, Math.max(20, Number(e.target.value))) })}
                               className="h-7 text-xs text-center w-full"
                             />

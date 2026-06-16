@@ -5,23 +5,32 @@ import com.wess.pilot.domain.FormField;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 /**
  * FormTemplate.fields 정의를 바탕으로 표 형식의 DOCX 양식을 자동 생성한다.
- * Apache POI 없이 최소 OOXML 구조를 직접 생성하여 외부 의존성을 추가하지 않는다.
+ * Apache POI 없이 최소 OOXML 구조를 직접 생성.
  *
  * 생성 구조:
  *  - 제목 단락 (굵게, 중앙 정렬)
- *  - 2열 표 (항목명 30% | 입력란 70%)
- *    - 헤더행: "항목" / "내용"  (회색 배경)
- *    - 각 필드행: label / 빈 칸 (textarea이면 3행으로 확대)
+ *  - 단일 표 (Single Table)
+ *    - 필드의 width% 누적이 100 초과 시 새 행으로 분기
+ *    - readOnly=true  → 회색 배경 라벨 전용 셀 (입력 영역 없음)
+ *    - readOnly=false → 회색 라벨 단락 + 흰 입력 단락 (height pt 적용)
  */
 public final class TemplateDocxGenerator {
 
     private TemplateDocxGenerator() {}
+
+    // A4 본문 너비 (좌우여백 제외, twips): 11906 - 1134 - 850 = 9922 → 9360으로 보정
+    private static final int TABLE_WIDTH = 9360;
+    // readOnly 셀 배경색 (회색)
+    private static final String COLOR_LABEL = "D1D5DB";
+
+    // ─── 진입점 ───────────────────────────────────────────────────────────────
 
     public static byte[] generate(String title, List<FormField> fields) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -63,9 +72,6 @@ public final class TemplateDocxGenerator {
                 + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"/>";
     }
 
-    // A4 본문 너비 (여백 제외, twips)
-    private static final int TABLE_WIDTH = 9360;
-
     // ─── 본문 document.xml ────────────────────────────────────────────────────
 
     private static String document(String title, List<FormField> fields) {
@@ -76,90 +82,181 @@ public final class TemplateDocxGenerator {
 
         // 제목
         sb.append(titleParagraph(title));
-
-        // 구분 여백
         sb.append("<w:p><w:pPr><w:spacing w:after=\"80\"/></w:pPr></w:p>");
 
-        // 필드를 width% 누적 기준으로 행 단위 분리
+        // 필드가 있으면 단일 표 생성
         if (fields != null && !fields.isEmpty()) {
-            // 행 묶음: 각 원소가 한 행의 필드 목록
-            java.util.List<java.util.List<FormField>> rows = new java.util.ArrayList<>();
-            java.util.List<FormField> currentRow = new java.util.ArrayList<>();
-            int accumulated = 0;
+            List<List<FormField>> rows = groupIntoRows(fields);
 
-            for (FormField f : fields) {
-                int w = (f.getWidth() > 0) ? f.getWidth() : 100;
-                if (!currentRow.isEmpty() && accumulated + w > 100) {
-                    rows.add(currentRow);
-                    currentRow = new java.util.ArrayList<>();
-                    accumulated = 0;
-                }
-                currentRow.add(f);
-                accumulated += w;
+            sb.append("<w:tbl>");
+            sb.append(tableProps());
+            for (List<FormField> row : rows) {
+                sb.append(buildTableRow(row));
             }
-            if (!currentRow.isEmpty()) rows.add(currentRow);
-
-            // 행마다 표 생성
-            for (java.util.List<FormField> row : rows) {
-                sb.append(fieldRowTable(row));
-                sb.append("<w:p><w:pPr><w:spacing w:after=\"40\"/></w:pPr></w:p>");
-            }
+            sb.append("</w:tbl>");
         }
 
-        // 섹션 속성 (A4 여백)
+        // 섹션 속성 (A4)
         sb.append("<w:sectPr>");
-        sb.append("<w:pgSz w:w=\"11906\" w:h=\"16838\"/>"); // A4
+        sb.append("<w:pgSz w:w=\"11906\" w:h=\"16838\"/>");
         sb.append("<w:pgMar w:top=\"1134\" w:right=\"850\" w:bottom=\"1134\" w:left=\"1134\""
                 + " w:header=\"709\" w:footer=\"709\" w:gutter=\"0\"/>");
         sb.append("</w:sectPr>");
 
-        sb.append("</w:body>");
-        sb.append("</w:document>");
+        sb.append("</w:body></w:document>");
         return sb.toString();
+    }
+
+    // ─── 행 분기 ─────────────────────────────────────────────────────────────
+
+    /**
+     * 필드 목록을 width% 누적 기준으로 행 단위로 묶는다.
+     * 누적이 100 초과 시 새 행으로 분리.
+     */
+    private static List<List<FormField>> groupIntoRows(List<FormField> fields) {
+        List<List<FormField>> rows = new ArrayList<>();
+        List<FormField> current = new ArrayList<>();
+        int accumulated = 0;
+
+        for (FormField f : fields) {
+            int w = effectiveWidth(f);
+            if (!current.isEmpty() && accumulated + w > 100) {
+                rows.add(current);
+                current = new ArrayList<>();
+                accumulated = 0;
+            }
+            current.add(f);
+            accumulated += w;
+        }
+        if (!current.isEmpty()) rows.add(current);
+        return rows;
+    }
+
+    // ─── 표 행 생성 ──────────────────────────────────────────────────────────
+
+    private static String buildTableRow(List<FormField> row) {
+        // 행 내 width% 합계 (100이 안 될 수 있으므로 비율로 재계산)
+        int totalPct = row.stream().mapToInt(TemplateDocxGenerator::effectiveWidth).sum();
+        if (totalPct <= 0) totalPct = 100;
+
+        // 행 최소 높이 결정
+        // readOnly가 아닌 필드 중 최대 height 값을 행 높이로 사용
+        int maxInputHeight = row.stream()
+                .filter(f -> !f.isReadOnly())
+                .mapToInt(f -> Math.max(effectiveHeight(f), 20))
+                .max()
+                .orElse(0);
+
+        // 모두 readOnly면 라벨 높이만 (20pt = 400 twips), 아니면 입력 높이
+        // pt → twips: 1pt = 20 twips
+        int rowHeightTwips = maxInputHeight > 0
+                ? maxInputHeight * 20
+                : 400;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("<w:tr>");
+        sb.append("<w:trPr>")
+          .append("<w:trHeight w:val=\"").append(rowHeightTwips).append("\" w:hRule=\"atLeast\"/>")
+          .append("</w:trPr>");
+
+        for (FormField f : row) {
+            int pct = effectiveWidth(f);
+            int cellW = TABLE_WIDTH * pct / totalPct;
+
+            if (f.isReadOnly()) {
+                sb.append(readOnlyCell(cellW, f.getLabel()));
+            } else {
+                sb.append(inputCell(cellW, f.getLabel()));
+            }
+        }
+
+        sb.append("</w:tr>");
+        return sb.toString();
+    }
+
+    // ─── 셀 생성 ─────────────────────────────────────────────────────────────
+
+    /**
+     * readOnly 셀: 회색 배경, 라벨 텍스트만 (입력 영역 없음).
+     * 서명란/헤더/고정값 표시용.
+     */
+    private static String readOnlyCell(int widthDxa, String label) {
+        return "<w:tc>"
+                + "<w:tcPr>"
+                + "<w:tcW w:w=\"" + widthDxa + "\" w:type=\"dxa\"/>"
+                + "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"" + COLOR_LABEL + "\"/>"
+                + tcMargins()
+                + "</w:tcPr>"
+                + "<w:p>"
+                + "<w:pPr><w:spacing w:before=\"0\" w:after=\"0\"/></w:pPr>"
+                + "<w:r>"
+                + "<w:rPr><w:b/><w:sz w:val=\"20\"/><w:szCs w:val=\"20\"/></w:rPr>"
+                + "<w:t xml:space=\"preserve\">" + escapeXml(label) + "</w:t>"
+                + "</w:r>"
+                + "</w:p>"
+                + "</w:tc>";
     }
 
     /**
-     * 한 행의 필드 목록으로 2행 표를 만든다.
-     * 1행: 라벨 셀들 (회색 배경, 굵게)
-     * 2행: 입력 셀들 (높이는 field.height pt 적용)
+     * 입력 셀: 회색 라벨 단락 + 흰 입력 단락.
+     * 행 높이(trHeight)로 입력 영역 크기가 결정된다.
      */
-    private static String fieldRowTable(java.util.List<FormField> row) {
-        // 너비 합계가 100이 안 될 수 있으므로 비율로 재계산
-        int totalPct = row.stream().mapToInt(f -> (f.getWidth() > 0 ? f.getWidth() : 100)).sum();
-        if (totalPct <= 0) totalPct = 100;
-
-        // 최대 높이 (pt → twips: 1pt = 20 twips)
-        int maxHeightTwips = row.stream()
-                .mapToInt(f -> (f.getHeight() > 0 ? f.getHeight() : 40))
-                .max().orElse(40) * 20;
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("<w:tbl>");
-        sb.append(tableProps(TABLE_WIDTH));
-
-        // 라벨 행
-        sb.append("<w:tr>");
-        for (FormField f : row) {
-            int pct = (f.getWidth() > 0 ? f.getWidth() : 100);
-            int cellW = TABLE_WIDTH * pct / totalPct;
-            sb.append(tc(cellW, "D1D5DB", true, false, f.getLabel()));
-        }
-        sb.append("</w:tr>");
-
-        // 입력 행
-        sb.append("<w:tr>");
-        sb.append("<w:trPr><w:trHeight w:val=\"").append(maxHeightTwips)
-                .append("\" w:hRule=\"atLeast\"/></w:trPr>");
-        for (FormField f : row) {
-            int pct = (f.getWidth() > 0 ? f.getWidth() : 100);
-            int cellW = TABLE_WIDTH * pct / totalPct;
-            sb.append(tc(cellW, null, false, f.isReadOnly(), ""));
-        }
-        sb.append("</w:tr>");
-
-        sb.append("</w:tbl>");
-        return sb.toString();
+    private static String inputCell(int widthDxa, String label) {
+        return "<w:tc>"
+                + "<w:tcPr>"
+                + "<w:tcW w:w=\"" + widthDxa + "\" w:type=\"dxa\"/>"
+                + tcMargins()
+                + "</w:tcPr>"
+                // 라벨 단락 (회색 배경)
+                + "<w:p>"
+                + "<w:pPr>"
+                + "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"" + COLOR_LABEL + "\"/>"
+                + "<w:spacing w:before=\"0\" w:after=\"60\"/>"
+                + "</w:pPr>"
+                + "<w:r>"
+                + "<w:rPr><w:b/><w:sz w:val=\"18\"/><w:szCs w:val=\"18\"/></w:rPr>"
+                + "<w:t xml:space=\"preserve\">" + escapeXml(label) + "</w:t>"
+                + "</w:r>"
+                + "</w:p>"
+                // 입력 단락 (흰 배경, 행 높이로 확장)
+                + "<w:p>"
+                + "<w:pPr><w:spacing w:before=\"0\" w:after=\"0\"/></w:pPr>"
+                + "</w:p>"
+                + "</w:tc>";
     }
+
+    // ─── 표 속성 ─────────────────────────────────────────────────────────────
+
+    private static String tableProps() {
+        return "<w:tblPr>"
+                + "<w:tblW w:w=\"" + TABLE_WIDTH + "\" w:type=\"dxa\"/>"
+                + "<w:tblBorders>"
+                + border("top") + border("left") + border("bottom") + border("right")
+                + border("insideH") + border("insideV")
+                + "</w:tblBorders>"
+                + "<w:tblCellMar>"
+                + "<w:top w:w=\"0\" w:type=\"dxa\"/>"
+                + "<w:left w:w=\"0\" w:type=\"dxa\"/>"
+                + "<w:bottom w:w=\"0\" w:type=\"dxa\"/>"
+                + "<w:right w:w=\"0\" w:type=\"dxa\"/>"
+                + "</w:tblCellMar>"
+                + "</w:tblPr>";
+    }
+
+    private static String border(String side) {
+        return "<w:" + side + " w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"9E9E9E\"/>";
+    }
+
+    private static String tcMargins() {
+        return "<w:tcMar>"
+                + "<w:top w:w=\"60\" w:type=\"dxa\"/>"
+                + "<w:left w:w=\"100\" w:type=\"dxa\"/>"
+                + "<w:bottom w:w=\"60\" w:type=\"dxa\"/>"
+                + "<w:right w:w=\"100\" w:type=\"dxa\"/>"
+                + "</w:tcMar>";
+    }
+
+    // ─── 제목 단락 ───────────────────────────────────────────────────────────
 
     private static String titleParagraph(String text) {
         return "<w:p>"
@@ -174,59 +271,16 @@ public final class TemplateDocxGenerator {
                 + "</w:p>";
     }
 
-    private static String tableProps(int widthDxa) {
-        return "<w:tblPr>"
-                + "<w:tblW w:w=\"" + widthDxa + "\" w:type=\"dxa\"/>"
-                + "<w:tblBorders>"
-                + border("top") + border("left") + border("bottom") + border("right")
-                + border("insideH") + border("insideV")
-                + "</w:tblBorders>"
-                + "</w:tblPr>";
+    // ─── 헬퍼 ────────────────────────────────────────────────────────────────
+
+    /** 유효 너비 % (0 또는 미설정이면 100으로 처리) */
+    private static int effectiveWidth(FormField f) {
+        return (f.getWidth() > 0) ? f.getWidth() : 100;
     }
 
-    private static String border(String side) {
-        return "<w:" + side + " w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"9E9E9E\"/>";
-    }
-
-    /**
-     * 표 셀 하나를 생성한다.
-     * @param widthDxa 셀 너비 (twips)
-     * @param bgColor  배경색 hex 6자리 또는 null
-     * @param bold     굵게 여부
-     * @param readOnly 잠금(sdtLock) 여부
-     * @param text     셀 텍스트
-     */
-    private static String tc(int widthDxa, String bgColor, boolean bold, boolean readOnly, String text) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("<w:tc>");
-        sb.append("<w:tcPr>");
-        sb.append("<w:tcW w:w=\"").append(widthDxa).append("\" w:type=\"dxa\"/>");
-        if (bgColor != null) {
-            sb.append("<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"").append(bgColor).append("\"/>");
-        }
-        sb.append("<w:tcMar>");
-        sb.append("<w:top w:w=\"80\" w:type=\"dxa\"/>");
-        sb.append("<w:left w:w=\"120\" w:type=\"dxa\"/>");
-        sb.append("<w:bottom w:w=\"80\" w:type=\"dxa\"/>");
-        sb.append("<w:right w:w=\"120\" w:type=\"dxa\"/>");
-        sb.append("</w:tcMar>");
-        if (readOnly) {
-            // 셀 보호 — 편집 제한
-            sb.append("<w:tcPrChange/>");
-        }
-        sb.append("</w:tcPr>");
-        sb.append("<w:p>");
-        sb.append("<w:pPr><w:spacing w:before=\"0\" w:after=\"0\"/></w:pPr>");
-        sb.append("<w:r>");
-        StringBuilder rPr = new StringBuilder();
-        if (bold) rPr.append("<w:b/>");
-        if (readOnly) rPr.append("<w:rPrChange/>");
-        if (rPr.length() > 0) sb.append("<w:rPr>").append(rPr).append("</w:rPr>");
-        sb.append("<w:t xml:space=\"preserve\">").append(escapeXml(text)).append("</w:t>");
-        sb.append("</w:r>");
-        sb.append("</w:p>");
-        sb.append("</w:tc>");
-        return sb.toString();
+    /** 유효 높이 pt (0 또는 미설정이면 40pt 처리) */
+    private static int effectiveHeight(FormField f) {
+        return (f.getHeight() > 0) ? f.getHeight() : 40;
     }
 
     private static String escapeXml(String s) {
