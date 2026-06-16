@@ -38,6 +38,7 @@ public final class TemplateDocxGenerator {
             writeEntry(zos, "[Content_Types].xml", contentTypes());
             writeEntry(zos, "_rels/.rels", rels());
             writeEntry(zos, "word/_rels/document.xml.rels", wordRels());
+            writeEntry(zos, "word/settings.xml", settingsXml());
             writeEntry(zos, "word/document.xml", document(title, fields));
             zos.finish();
             return baos.toByteArray();
@@ -55,6 +56,8 @@ public final class TemplateDocxGenerator {
                 + "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
                 + "<Override PartName=\"/word/document.xml\""
                 + " ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>"
+                + "<Override PartName=\"/word/settings.xml\""
+                + " ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml\"/>"
                 + "</Types>";
     }
 
@@ -69,7 +72,22 @@ public final class TemplateDocxGenerator {
 
     private static String wordRels() {
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
-                + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"/>";
+                + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+                + "<Relationship Id=\"rId1\""
+                + " Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings\""
+                + " Target=\"settings.xml\"/>"
+                + "</Relationships>";
+    }
+
+    /**
+     * 문서 보호 설정 — forms 모드: SDT(Content Control)로 감싼 영역만 편집 가능,
+     * 나머지(항목명 셀 등)는 읽기 전용으로 잠긴다.
+     */
+    private static String settingsXml() {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
+                + "<w:settings xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">"
+                + "<w:documentProtection w:edit=\"forms\" w:enforcement=\"1\"/>"
+                + "</w:settings>";
     }
 
     // ─── 본문 document.xml ────────────────────────────────────────────────────
@@ -196,7 +214,7 @@ public final class TemplateDocxGenerator {
             if (f.isReadOnly()) {
                 sb.append(readOnlyCell(cellW, f.getLabel()));
             } else {
-                sb.append(inputCell(cellW, f.getLabel()));
+                sb.append(inputCell(cellW, f.getLabel(), f.getKey()));
             }
         }
 
@@ -228,10 +246,12 @@ public final class TemplateDocxGenerator {
     }
 
     /**
-     * 입력 셀: 회색 라벨 단락 + 흰 입력 단락.
-     * 행 높이(trHeight)로 입력 영역 크기가 결정된다.
+     * 입력 셀: 회색 라벨 단락 + SDT Content Control 입력 영역.
+     * SDT 에 key 를 태그로 설정하면:
+     *  1) 문서 보호(forms 모드)에서 이 영역만 편집 가능
+     *  2) DocxFieldValidator 가 태그를 검증할 때도 인식됨
      */
-    private static String inputCell(int widthDxa, String label) {
+    private static String inputCell(int widthDxa, String label, String key) {
         return "<w:tc>"
                 + "<w:tcPr>"
                 + "<w:tcW w:w=\"" + widthDxa + "\" w:type=\"dxa\"/>"
@@ -248,10 +268,18 @@ public final class TemplateDocxGenerator {
                 + "<w:t xml:space=\"preserve\">" + escapeXml(label) + "</w:t>"
                 + "</w:r>"
                 + "</w:p>"
-                // 입력 단락 (흰 배경, 행 높이로 확장)
+                // SDT Content Control — 문서 보호 forms 모드에서 편집 가능 영역
+                + "<w:sdt>"
+                + "<w:sdtPr>"
+                + "<w:tag w:val=\"" + escapeXml(key != null ? key : "") + "\"/>"
+                + "<w:text/>"  // 텍스트 입력 타입
+                + "</w:sdtPr>"
+                + "<w:sdtContent>"
                 + "<w:p>"
                 + "<w:pPr><w:spacing w:before=\"0\" w:after=\"0\"/></w:pPr>"
                 + "</w:p>"
+                + "</w:sdtContent>"
+                + "</w:sdt>"
                 + "</w:tc>";
     }
 
