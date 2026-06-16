@@ -215,7 +215,7 @@ function TemplateEditPanel({
   }
 
   function addField() {
-    setFields((f) => [...f, { key: "", label: "", type: "text", saveToDb: true }]);
+    setFields((f) => [...f, { key: "", label: "", type: "text", saveToDb: true, readOnly: false, width: 100, height: 40 }]);
     markDirty();
   }
 
@@ -226,6 +226,17 @@ function TemplateEditPanel({
 
   function removeField(idx: number) {
     setFields((f) => f.filter((_, i) => i !== idx));
+    markDirty();
+  }
+
+  function moveField(idx: number, dir: -1 | 1) {
+    const next = idx + dir;
+    if (next < 0 || next >= fields.length) return;
+    setFields((f) => {
+      const arr = [...f];
+      [arr[idx], arr[next]] = [arr[next], arr[idx]];
+      return arr;
+    });
     markDirty();
   }
 
@@ -366,21 +377,45 @@ function TemplateEditPanel({
         </div>
 
         {fields.length > 0 && (
-          <div className="rounded border border-slate-200 overflow-hidden">
-            <table className="w-full text-xs">
+          <div className="rounded border border-slate-200 overflow-x-auto">
+            <table className="w-full text-xs min-w-[780px]">
               <thead>
                 <tr className="bg-slate-100 text-slate-500 text-left">
-                  <th className="px-2 py-1.5 w-6">#</th>
+                  <th className="px-1.5 py-1.5 w-12 text-center">순서</th>
+                  <th className="px-2 py-1.5 w-5">#</th>
                   <th className="px-2 py-1.5">항목명</th>
-                  <th className="px-2 py-1.5 w-28">키 (key)</th>
-                  <th className="px-2 py-1.5 w-28">타입</th>
-                  <th className="px-2 py-1.5 w-16 text-center">DB저장</th>
+                  <th className="px-2 py-1.5 w-24">키 (key)</th>
+                  <th className="px-2 py-1.5 w-24">타입</th>
+                  <th className="px-2 py-1.5 w-16 text-center">너비(%)</th>
+                  <th className="px-2 py-1.5 w-16 text-center">높이(pt)</th>
+                  <th className="px-2 py-1.5 w-14 text-center">읽기전용</th>
+                  <th className="px-2 py-1.5 w-14 text-center">DB저장</th>
                   <th className="px-2 py-1.5 w-8"></th>
                 </tr>
               </thead>
               <tbody>
                 {fields.map((field, idx) => (
                   <tr key={idx} className="border-t border-slate-100">
+                    <td className="px-1.5 py-1 text-center">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <button
+                          onClick={() => moveField(idx, -1)}
+                          disabled={idx === 0}
+                          className="text-slate-400 hover:text-slate-700 disabled:opacity-20 leading-none"
+                          title="위로"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => moveField(idx, 1)}
+                          disabled={idx === fields.length - 1}
+                          className="text-slate-400 hover:text-slate-700 disabled:opacity-20 leading-none"
+                          title="아래로"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-2 py-1.5 text-slate-400">{idx + 1}</td>
                     <td className="px-2 py-1.5">
                       <Input
@@ -410,6 +445,35 @@ function TemplateEditPanel({
                       </Select>
                     </td>
                     <td className="px-2 py-1.5 text-center">
+                      <Input
+                        type="number"
+                        min={10}
+                        max={100}
+                        value={field.width ?? 100}
+                        onChange={(e) => updateField(idx, { width: Math.min(100, Math.max(10, Number(e.target.value))) })}
+                        className="h-7 text-xs text-center w-full"
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-center">
+                      <Input
+                        type="number"
+                        min={20}
+                        max={300}
+                        value={field.height ?? 40}
+                        onChange={(e) => updateField(idx, { height: Math.min(300, Math.max(20, Number(e.target.value))) })}
+                        className="h-7 text-xs text-center w-full"
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-center">
+                      <input
+                        type="checkbox"
+                        checked={field.readOnly === true}
+                        onChange={(e) => updateField(idx, { readOnly: e.target.checked })}
+                        className="w-3.5 h-3.5"
+                        title="학생이 수정 불가"
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-center">
                       <input
                         type="checkbox"
                         checked={field.saveToDb !== false}
@@ -434,10 +498,9 @@ function TemplateEditPanel({
           </div>
         )}
 
-        {/* DB저장 안내 */}
+        {/* 안내 */}
         <p className="text-xs text-slate-400">
-          ☑ DB저장: 학생 최종 제출 시 해당 필드 값이 DB에 기록됩니다.
-          DOCX 업로드 시 ☑ 표시된 필드의 key가 OnlyOffice 폼 태그와 일치해야 합니다.
+          너비%: 같은 줄 필드의 합이 100 초과 시 자동 줄바꿈 / ☑ DB저장: 학생 최종 제출 시 DB에 기록
         </p>
       </div>
 
@@ -565,7 +628,7 @@ function NewTemplateWizard({
   const [semester, setSemester] = React.useState<"1" | "2">("1");
   const [subject, setSubject] = React.useState("");
   const [fields, setFields] = React.useState<FormField[]>([
-    { key: "tasks", label: "주요 수행 업무", type: "textarea", saveToDb: true },
+    { key: "tasks", label: "주요 수행 업무", type: "textarea", saveToDb: true, readOnly: false, width: 100, height: 80 },
   ]);
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -575,13 +638,22 @@ function NewTemplateWizard({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   function addField() {
-    setFields((f) => [...f, { key: "", label: "", type: "text", saveToDb: true }]);
+    setFields((f) => [...f, { key: "", label: "", type: "text", saveToDb: true, readOnly: false, width: 100, height: 40 }]);
   }
   function updateField(idx: number, patch: Partial<FormField>) {
     setFields((f) => f.map((field, i) => (i === idx ? { ...field, ...patch } : field)));
   }
   function removeField(idx: number) {
     setFields((f) => f.filter((_, i) => i !== idx));
+  }
+  function moveField(idx: number, dir: -1 | 1) {
+    const next = idx + dir;
+    if (next < 0 || next >= fields.length) return;
+    setFields((f) => {
+      const arr = [...f];
+      [arr[idx], arr[next]] = [arr[next], arr[idx]];
+      return arr;
+    });
   }
 
   async function handleStep1Submit() {
@@ -757,20 +829,42 @@ function NewTemplateWizard({
                     항목 추가
                   </Button>
                 </div>
-                <div className="rounded border border-slate-200 overflow-hidden">
-                  <table className="w-full text-xs">
+                <div className="rounded border border-slate-200 overflow-x-auto">
+                  <table className="w-full text-xs min-w-[700px]">
                     <thead>
                       <tr className="bg-slate-100 text-slate-500 text-left">
+                        <th className="px-1.5 py-1.5 w-12 text-center">순서</th>
                         <th className="px-2 py-1.5">항목명</th>
-                        <th className="px-2 py-1.5 w-28">키 (key)</th>
-                        <th className="px-2 py-1.5 w-24">타입</th>
-                        <th className="px-2 py-1.5 w-16 text-center">DB저장</th>
+                        <th className="px-2 py-1.5 w-24">키 (key)</th>
+                        <th className="px-2 py-1.5 w-20">타입</th>
+                        <th className="px-2 py-1.5 w-14 text-center">너비(%)</th>
+                        <th className="px-2 py-1.5 w-14 text-center">높이(pt)</th>
+                        <th className="px-2 py-1.5 w-14 text-center">읽기전용</th>
+                        <th className="px-2 py-1.5 w-14 text-center">DB저장</th>
                         <th className="px-2 py-1.5 w-8"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {fields.map((field, idx) => (
                         <tr key={idx} className="border-t border-slate-100">
+                          <td className="px-1.5 py-1 text-center">
+                            <div className="flex flex-col items-center gap-0.5">
+                              <button
+                                onClick={() => moveField(idx, -1)}
+                                disabled={idx === 0}
+                                className="text-slate-400 hover:text-slate-700 disabled:opacity-20 leading-none"
+                              >
+                                <ChevronUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => moveField(idx, 1)}
+                                disabled={idx === fields.length - 1}
+                                className="text-slate-400 hover:text-slate-700 disabled:opacity-20 leading-none"
+                              >
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
                           <td className="px-2 py-1.5">
                             <Input
                               value={field.label}
@@ -803,6 +897,34 @@ function NewTemplateWizard({
                             </Select>
                           </td>
                           <td className="px-2 py-1.5 text-center">
+                            <Input
+                              type="number"
+                              min={10}
+                              max={100}
+                              value={field.width ?? 100}
+                              onChange={(e) => updateField(idx, { width: Math.min(100, Math.max(10, Number(e.target.value))) })}
+                              className="h-7 text-xs text-center w-full"
+                            />
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
+                            <Input
+                              type="number"
+                              min={20}
+                              max={300}
+                              value={field.height ?? 40}
+                              onChange={(e) => updateField(idx, { height: Math.min(300, Math.max(20, Number(e.target.value))) })}
+                              className="h-7 text-xs text-center w-full"
+                            />
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
+                            <input
+                              type="checkbox"
+                              checked={field.readOnly === true}
+                              onChange={(e) => updateField(idx, { readOnly: e.target.checked })}
+                              className="w-3.5 h-3.5"
+                            />
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
                             <input
                               type="checkbox"
                               checked={field.saveToDb !== false}
@@ -825,8 +947,7 @@ function NewTemplateWizard({
                   </table>
                 </div>
                 <p className="text-xs text-slate-400">
-                  ☑ DB저장: 최종 제출 시 해당 필드 값이 DB에 저장됩니다.
-                  파일 업로드 시 ☑ 필드의 key가 OnlyOffice 폼 태그와 일치해야 합니다.
+                  너비%: 같은 줄 합이 100 초과 시 자동 줄바꿈 / ☑ DB저장: 최종 제출 시 DB에 저장
                 </p>
               </div>
             </div>

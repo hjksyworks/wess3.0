@@ -21,6 +21,12 @@ export interface FormField {
   type: "text" | "textarea" | "date" | "combo" | "checkbox";
   /** 학생 최종 제출 시 journals.content(DB)에 저장할지 여부. 기본 true */
   saveToDb?: boolean;
+  /** 학생이 수정 불가(읽기 전용) 여부. 기본 false */
+  readOnly?: boolean;
+  /** 가로 너비 % (10~100). 누적 합이 100 초과 시 자동 줄바꿈. 기본 100 */
+  width?: number;
+  /** 셀 높이 pt. textarea 계열에 주로 사용. 기본 40 */
+  height?: number;
   /** combo/checkbox 타입일 때 선택 옵션 목록 */
   options?: string[];
 }
