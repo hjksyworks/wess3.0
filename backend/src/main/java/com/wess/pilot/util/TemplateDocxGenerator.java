@@ -112,16 +112,19 @@ public final class TemplateDocxGenerator {
         sb.append(titleParagraph(title));
         sb.append("<w:p><w:pPr><w:spacing w:after=\"80\"/></w:pPr></w:p>");
 
-        // 필드가 있으면 단일 표 생성
+        // 행마다 독립 표 생성 — 행별 셀 수가 달라도 너비가 정확히 적용됨
         if (fields != null && !fields.isEmpty()) {
             List<List<FormField>> rows = groupIntoRows(fields);
-
-            sb.append("<w:tbl>");
-            sb.append(tableProps());
-            for (List<FormField> row : rows) {
-                sb.append(buildTableRow(row));
+            for (int i = 0; i < rows.size(); i++) {
+                sb.append("<w:tbl>");
+                sb.append(tableProps(i == 0));   // 첫 행만 top border
+                sb.append(buildTableRow(rows.get(i)));
+                sb.append("</w:tbl>");
+                if (i < rows.size() - 1) {
+                    // 행 구분: 이전 표의 bottom border = 다음 행의 경계선
+                    sb.append("<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\"/></w:pPr></w:p>");
+                }
             }
-            sb.append("</w:tbl>");
         }
 
         // 섹션 속성 (A4)
@@ -304,14 +307,19 @@ public final class TemplateDocxGenerator {
 
     // ─── 표 속성 ─────────────────────────────────────────────────────────────
 
-    private static String tableProps() {
+    /**
+     * @param isFirstRow true이면 top border 포함; false이면 nil (이전 표의 bottom이 경계선 역할)
+     */
+    private static String tableProps(boolean isFirstRow) {
         return "<w:tblPr>"
                 + "<w:tblW w:w=\"" + TABLE_WIDTH + "\" w:type=\"dxa\"/>"
-                // fixed layout: 셀 너비 선언값을 강제 적용 (auto 시 빈 SDT 셀이 축소됨)
+                // fixed layout: 셀 너비 선언값을 강제 적용
                 + "<w:tblLayout w:type=\"fixed\"/>"
                 + "<w:tblBorders>"
-                + border("top") + border("left") + border("bottom") + border("right")
-                + border("insideH") + border("insideV")
+                + (isFirstRow ? border("top") : "<w:top w:val=\"nil\"/>")
+                + border("left") + border("bottom") + border("right")
+                + "<w:insideH w:val=\"nil\"/>"   // 표마다 1행이므로 내부 수평선 불필요
+                + border("insideV")
                 + "</w:tblBorders>"
                 + "<w:tblCellMar>"
                 + "<w:top w:w=\"0\" w:type=\"dxa\"/>"
