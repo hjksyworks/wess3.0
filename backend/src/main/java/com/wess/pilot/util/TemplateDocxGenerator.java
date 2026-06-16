@@ -96,7 +96,6 @@ public final class TemplateDocxGenerator {
     private static String settingsXml() {
         return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>"
                 + "<w:settings xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">"
-                + "<w:documentProtection w:edit=\"forms\" w:enforcement=\"1\"/>"
                 + "</w:settings>";
     }
 
