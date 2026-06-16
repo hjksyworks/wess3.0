@@ -281,7 +281,7 @@ public final class TemplateDocxGenerator {
                 + "<w:sdt>"
                 + "<w:sdtPr>"
                 + "<w:tag w:val=\"" + escapeXml(key != null ? key : "") + "\"/>"
-                + "<w:text/>"
+                // <w:text/> 제거 → rich text SDT: 이미지·서식 삽입 가능 (forms 모드 내)
                 + "</w:sdtPr>"
                 + "<w:sdtContent>"
                 + "<w:r><w:rPr/><w:t></w:t></w:r>"
