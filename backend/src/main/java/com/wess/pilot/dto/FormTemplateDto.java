@@ -2,7 +2,6 @@ package com.wess.pilot.dto;
 
 import com.wess.pilot.domain.FormField;
 import com.wess.pilot.domain.FormTemplate;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -13,7 +12,6 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public class FormTemplateDto {
 
     private Long id;
@@ -26,16 +24,24 @@ public class FormTemplateDto {
     private String templateFileName;
     private LocalDate createdDate;
 
+    /** OnlyOffice 에디터 설정 — getEditorConfig() 호출 시 채워짐 */
+    private String documentUrl;
+    private String callbackUrl;
+    private String documentKey;
+
     public static FormTemplateDto from(FormTemplate entity) {
-        return new FormTemplateDto(
-                entity.getId(),
-                entity.getYear(),
-                entity.getSemester(),
-                entity.getSubject(),
-                entity.getName(),
-                entity.getFields(),
-                entity.getTemplateFileKey(),
-                entity.getTemplateFileName(),
-                entity.getCreatedDate());
+        FormTemplateDto dto = new FormTemplateDto();
+        dto.setId(entity.getId());
+        dto.setYear(entity.getYear());
+        dto.setSemester(entity.getSemester());
+        dto.setSubject(entity.getSubject());
+        dto.setName(entity.getName());
+        dto.setFields(entity.getFields());
+        dto.setTemplateFileKey(entity.getTemplateFileKey());
+        dto.setTemplateFileName(entity.getTemplateFileName());
+        dto.setCreatedDate(entity.getCreatedDate());
+        long ts = entity.getUpdatedAt() != null ? entity.getUpdatedAt().getEpochSecond() : 0L;
+        dto.setDocumentKey("template-" + entity.getId() + "-" + ts);
+        return dto;
     }
 }

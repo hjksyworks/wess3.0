@@ -22,7 +22,9 @@ import java.util.List;
  * - /api/auth/** : 누구나 접근 가능 (로그인)
  * - GET /api/journals/{id}/file, POST /api/journals/{id}/callback : OnlyOffice 서버가
  *   사용자 토큰 없이 직접 호출하므로 인증 없이 허용
- * - /api/admin/** , 양식/배정 등록(POST) : 관리자(ADMIN)만 허용
+ * - GET /api/form-templates/{id}/file, POST /api/form-templates/{id}/callback :
+ *   마찬가지로 OnlyOffice 컨테이너가 직접 호출 — 인증 없이 허용
+ * - /api/admin/** , 양식/배정 등록(POST), 양식 수정/삭제 : 관리자(ADMIN)만 허용
  * - 그 외 /api/** : 로그인한 계정이면 허용
  */
 @Configuration
@@ -49,9 +51,16 @@ public class SecurityConfig {
                         .antMatchers(HttpMethod.GET, "/api/journals/*/file").permitAll()
                         .antMatchers(HttpMethod.HEAD, "/api/journals/*/file").permitAll()
                         .antMatchers(HttpMethod.POST, "/api/journals/*/callback").permitAll()
+                        .antMatchers(HttpMethod.GET, "/api/form-templates/*/file").permitAll()
+                        .antMatchers(HttpMethod.HEAD, "/api/form-templates/*/file").permitAll()
+                        .antMatchers(HttpMethod.POST, "/api/form-templates/*/callback").permitAll()
                         .antMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
                         .antMatchers(HttpMethod.POST, "/api/enrollments").hasAuthority("ROLE_ADMIN")
-                        .antMatchers(HttpMethod.POST, "/api/form-templates/**").hasAuthority("ROLE_ADMIN")
+                        .antMatchers(HttpMethod.POST, "/api/form-templates").hasAuthority("ROLE_ADMIN")
+                        .antMatchers(HttpMethod.PUT, "/api/form-templates/*").hasAuthority("ROLE_ADMIN")
+                        .antMatchers(HttpMethod.DELETE, "/api/form-templates/*").hasAuthority("ROLE_ADMIN")
+                        .antMatchers(HttpMethod.POST, "/api/form-templates/*/file").hasAuthority("ROLE_ADMIN")
+                        .antMatchers(HttpMethod.POST, "/api/form-templates/*/generate-docx").hasAuthority("ROLE_ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
 

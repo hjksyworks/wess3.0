@@ -12,6 +12,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -55,4 +56,12 @@ public class FormTemplate {
 
     @Column(name = "created_date", nullable = false)
     private LocalDate createdDate;
+
+    /** 파일이 변경될 때마다 갱신 (OnlyOffice documentKey 버전 관리용) */
+    @Column(name = "updated_at")
+    private java.time.Instant updatedAt;
+
+    public void touchFile() {
+        this.updatedAt = java.time.Instant.now();
+    }
 }
