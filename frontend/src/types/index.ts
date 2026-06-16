@@ -23,6 +23,8 @@ export interface FormField {
   saveToDb?: boolean;
   /** 학생이 수정 불가(읽기 전용) 여부. 기본 false */
   readOnly?: boolean;
+  /** 라벨셀이 pair 전체 너비에서 차지하는 비율 % (1~99). 기본 30 */
+  labelWidth?: number;
   /** 가로 너비 % (10~100). 같은 행 내 셀 너비 비율. 기본 100 */
   width?: number;
   /** 셀 높이 pt. 기본 40 */

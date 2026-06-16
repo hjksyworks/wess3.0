@@ -16,10 +16,11 @@ import java.util.zip.ZipOutputStream;
  *
  * 생성 구조:
  *  - 제목 단락 (굵게, 중앙 정렬)
- *  - 단일 표 (Single Table)
- *    - 필드의 width% 누적이 100 초과 시 새 행으로 분기
- *    - readOnly=true  → 회색 배경 라벨 전용 셀 (입력 영역 없음)
- *    - readOnly=false → 회색 라벨 단락 + 흰 입력 단락 (height pt 적용)
+ *  - 단일 표 (Single Table): 필드 1개 = 라벨셀🔴 + 입력셀🔵 자동 쌍
+ *    - rowGroup("행번호-셀순서")로 같은 행에 배치, 셀순서로 좌→우 정렬
+ *    - 라벨셀🔴: 회색 배경, 항목명 표시, 편집 불가 (SDT 없음)
+ *    - 입력셀🔵 readOnly=false → SDT Content Control (학생 편집 가능)
+ *    - 입력셀🔵 readOnly=true  → 흰 빈 셀, 편집 불가 (조회 전용)
  */
 public final class TemplateDocxGenerator {
 
@@ -187,19 +188,12 @@ public final class TemplateDocxGenerator {
         int totalPct = row.stream().mapToInt(TemplateDocxGenerator::effectiveWidth).sum();
         if (totalPct <= 0) totalPct = 100;
 
-        // 행 최소 높이 결정
-        // readOnly가 아닌 필드 중 최대 height 값을 행 높이로 사용
-        int maxInputHeight = row.stream()
-                .filter(f -> !f.isReadOnly())
+        // 행 최소 높이 — 모든 필드가 입력셀을 가지므로 max height 사용
+        int maxHeight = row.stream()
                 .mapToInt(f -> Math.max(effectiveHeight(f), 20))
                 .max()
-                .orElse(0);
-
-        // 모두 readOnly면 라벨 높이만 (20pt = 400 twips), 아니면 입력 높이
-        // pt → twips: 1pt = 20 twips
-        int rowHeightTwips = maxInputHeight > 0
-                ? maxInputHeight * 20
-                : 400;
+                .orElse(40);
+        int rowHeightTwips = maxHeight * 20; // pt → twips
 
         StringBuilder sb = new StringBuilder();
         sb.append("<w:tr>");
@@ -209,12 +203,19 @@ public final class TemplateDocxGenerator {
 
         for (FormField f : row) {
             int pct = effectiveWidth(f);
-            int cellW = TABLE_WIDTH * pct / totalPct;
+            int pairW = TABLE_WIDTH * pct / totalPct;
+            int lw = effectiveLabelWidth(f);          // 라벨 비율 %
+            int labelW = pairW * lw / 100;
+            int inputW = pairW - labelW;
 
+            // 라벨셀 🔴 — 항상 생성 (문서보호로 편집 불가)
+            sb.append(labelCell(labelW, f.getLabel()));
+
+            // 입력셀 🔵 — readOnly 여부로 SDT 적용 결정
             if (f.isReadOnly()) {
-                sb.append(readOnlyCell(cellW, f.getLabel()));
+                sb.append(inputLockedCell(inputW));
             } else {
-                sb.append(inputCell(cellW, f.getLabel(), f.getKey()));
+                sb.append(inputSdtCell(inputW, f.getKey()));
             }
         }
 
@@ -225,10 +226,10 @@ public final class TemplateDocxGenerator {
     // ─── 셀 생성 ─────────────────────────────────────────────────────────────
 
     /**
-     * readOnly 셀: 회색 배경, 라벨 텍스트만 (입력 영역 없음).
-     * 서명란/헤더/고정값 표시용.
+     * 라벨셀 🔴: 회색 배경, 항목명 표시.
+     * 문서 보호(forms 모드)로 편집 불가 — SDT 없음.
      */
-    private static String readOnlyCell(int widthDxa, String label) {
+    private static String labelCell(int widthDxa, String label) {
         return "<w:tc>"
                 + "<w:tcPr>"
                 + "<w:tcW w:w=\"" + widthDxa + "\" w:type=\"dxa\"/>"
@@ -246,40 +247,39 @@ public final class TemplateDocxGenerator {
     }
 
     /**
-     * 입력 셀: 회색 라벨 단락 + SDT Content Control 입력 영역.
-     * SDT 에 key 를 태그로 설정하면:
-     *  1) 문서 보호(forms 모드)에서 이 영역만 편집 가능
-     *  2) DocxFieldValidator 가 태그를 검증할 때도 인식됨
+     * 입력셀 🔵 (readOnly=false): 흰 배경, SDT Content Control.
+     * 문서 보호 forms 모드에서 이 영역만 편집 가능.
+     * DocxFieldValidator 가 w:tag 값으로 key 를 검증한다.
      */
-    private static String inputCell(int widthDxa, String label, String key) {
+    private static String inputSdtCell(int widthDxa, String key) {
         return "<w:tc>"
                 + "<w:tcPr>"
                 + "<w:tcW w:w=\"" + widthDxa + "\" w:type=\"dxa\"/>"
                 + tcMargins()
                 + "</w:tcPr>"
-                // 라벨 단락 (회색 배경)
-                + "<w:p>"
-                + "<w:pPr>"
-                + "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"" + COLOR_LABEL + "\"/>"
-                + "<w:spacing w:before=\"0\" w:after=\"60\"/>"
-                + "</w:pPr>"
-                + "<w:r>"
-                + "<w:rPr><w:b/><w:sz w:val=\"18\"/><w:szCs w:val=\"18\"/></w:rPr>"
-                + "<w:t xml:space=\"preserve\">" + escapeXml(label) + "</w:t>"
-                + "</w:r>"
-                + "</w:p>"
-                // SDT Content Control — 문서 보호 forms 모드에서 편집 가능 영역
                 + "<w:sdt>"
                 + "<w:sdtPr>"
                 + "<w:tag w:val=\"" + escapeXml(key != null ? key : "") + "\"/>"
-                + "<w:text/>"  // 텍스트 입력 타입
+                + "<w:text/>"
                 + "</w:sdtPr>"
                 + "<w:sdtContent>"
-                + "<w:p>"
-                + "<w:pPr><w:spacing w:before=\"0\" w:after=\"0\"/></w:pPr>"
-                + "</w:p>"
+                + "<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\"/></w:pPr></w:p>"
                 + "</w:sdtContent>"
                 + "</w:sdt>"
+                + "</w:tc>";
+    }
+
+    /**
+     * 입력셀 🔵 (readOnly=true): 흰 배경, 내용 없음.
+     * SDT 없이 문서 보호로 잠김 → 조회 전용 표시 영역.
+     */
+    private static String inputLockedCell(int widthDxa) {
+        return "<w:tc>"
+                + "<w:tcPr>"
+                + "<w:tcW w:w=\"" + widthDxa + "\" w:type=\"dxa\"/>"
+                + tcMargins()
+                + "</w:tcPr>"
+                + "<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\"/></w:pPr></w:p>"
                 + "</w:tc>";
     }
 
@@ -339,6 +339,12 @@ public final class TemplateDocxGenerator {
     /** 유효 높이 pt (0 또는 미설정이면 40pt 처리) */
     private static int effectiveHeight(FormField f) {
         return (f.getHeight() > 0) ? f.getHeight() : 40;
+    }
+
+    /** 유효 라벨너비 % (범위 벗어나면 30으로 처리) */
+    private static int effectiveLabelWidth(FormField f) {
+        int lw = f.getLabelWidth();
+        return (lw > 0 && lw < 100) ? lw : 30;
     }
 
     private static String escapeXml(String s) {

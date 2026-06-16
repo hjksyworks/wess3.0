@@ -215,7 +215,7 @@ function TemplateEditPanel({
   }
 
   function addField() {
-    setFields((f) => [...f, { key: "", label: "", type: "text", saveToDb: true, readOnly: false, width: 100, height: 40 }]);
+    setFields((f) => [...f, { key: "", label: "", type: "text", saveToDb: true, readOnly: false, width: 100, labelWidth: 30, height: 40 }]);
     markDirty();
   }
 
@@ -378,7 +378,7 @@ function TemplateEditPanel({
 
         {fields.length > 0 && (
           <div className="rounded border border-slate-200 overflow-x-auto">
-            <table className="w-full text-xs min-w-[780px]">
+            <table className="w-full text-xs min-w-[900px]">
               <thead>
                 <tr className="bg-slate-100 text-slate-500 text-left">
                   <th className="px-1.5 py-1.5 w-12 text-center">순서</th>
@@ -387,9 +387,10 @@ function TemplateEditPanel({
                   <th className="px-2 py-1.5 w-20">키 (key)</th>
                   <th className="px-2 py-1.5 w-20">타입</th>
                   <th className="px-2 py-1.5 w-20 text-center">행-셀</th>
-                  <th className="px-2 py-1.5 w-16 text-center">너비(%)</th>
+                  <th className="px-2 py-1.5 w-16 text-center">전체너비(%)</th>
+                  <th className="px-2 py-1.5 w-16 text-center">라벨너비(%)</th>
                   <th className="px-2 py-1.5 w-16 text-center">높이(pt)</th>
-                  <th className="px-2 py-1.5 w-14 text-center">읽기전용</th>
+                  <th className="px-2 py-1.5 w-14 text-center">입력잠금</th>
                   <th className="px-2 py-1.5 w-14 text-center">DB저장</th>
                   <th className="px-2 py-1.5 w-8"></th>
                 </tr>
@@ -466,6 +467,17 @@ function TemplateEditPanel({
                     <td className="px-2 py-1.5 text-center">
                       <Input
                         type="number"
+                        min={1}
+                        max={99}
+                        value={field.labelWidth || 30}
+                        onChange={(e) => updateField(idx, { labelWidth: Math.min(99, Math.max(1, Number(e.target.value))) })}
+                        className="h-7 text-xs text-center w-full"
+                        title="라벨셀🔴이 pair 너비에서 차지하는 % (나머지는 입력셀🔵)"
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-center">
+                      <Input
+                        type="number"
                         min={20}
                         max={300}
                         value={field.height || 40}
@@ -479,7 +491,7 @@ function TemplateEditPanel({
                         checked={field.readOnly === true}
                         onChange={(e) => updateField(idx, { readOnly: e.target.checked })}
                         className="w-3.5 h-3.5"
-                        title="학생이 수정 불가"
+                        title="입력셀🔵 잠금 (조회 전용, SDT 없음)"
                       />
                     </td>
                     <td className="px-2 py-1.5 text-center">
@@ -509,7 +521,7 @@ function TemplateEditPanel({
 
         {/* 안내 */}
         <p className="text-xs text-slate-400">
-          행-셀: "1-1","1-2" 같은 행번호끼리 같은 행에 배치, 셀번호로 좌→우 순서 결정 / ☑ DB저장: 최종 제출 시 DB에 기록
+          필드 1개 = 라벨셀🔴 + 입력셀🔵 자동 쌍 / 행-셀: "1-1","1-2" 같은 행번호끼리 같은 행에 배치 / 라벨너비%: 라벨셀🔴 비율 (나머지가 입력셀🔵) / 입력잠금☑: 입력셀🔵을 잠가 조회 전용으로 만듦
         </p>
       </div>
 
@@ -637,7 +649,7 @@ function NewTemplateWizard({
   const [semester, setSemester] = React.useState<"1" | "2">("1");
   const [subject, setSubject] = React.useState("");
   const [fields, setFields] = React.useState<FormField[]>([
-    { key: "tasks", label: "주요 수행 업무", type: "textarea", saveToDb: true, readOnly: false, width: 100, height: 80 },
+    { key: "tasks", label: "주요 수행 업무", type: "textarea", saveToDb: true, readOnly: false, width: 100, labelWidth: 30, height: 80 },
   ]);
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -647,7 +659,7 @@ function NewTemplateWizard({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   function addField() {
-    setFields((f) => [...f, { key: "", label: "", type: "text", saveToDb: true, readOnly: false, width: 100, height: 40 }]);
+    setFields((f) => [...f, { key: "", label: "", type: "text", saveToDb: true, readOnly: false, width: 100, labelWidth: 30, height: 40 }]);
   }
   function updateField(idx: number, patch: Partial<FormField>) {
     setFields((f) => f.map((field, i) => (i === idx ? { ...field, ...patch } : field)));
@@ -839,7 +851,7 @@ function NewTemplateWizard({
                   </Button>
                 </div>
                 <div className="rounded border border-slate-200 overflow-x-auto">
-                  <table className="w-full text-xs min-w-[700px]">
+                  <table className="w-full text-xs min-w-[860px]">
                     <thead>
                       <tr className="bg-slate-100 text-slate-500 text-left">
                         <th className="px-1.5 py-1.5 w-12 text-center">순서</th>
@@ -847,9 +859,10 @@ function NewTemplateWizard({
                         <th className="px-2 py-1.5 w-20">키 (key)</th>
                         <th className="px-2 py-1.5 w-18">타입</th>
                         <th className="px-2 py-1.5 w-18 text-center">행-셀</th>
-                        <th className="px-2 py-1.5 w-14 text-center">너비(%)</th>
+                        <th className="px-2 py-1.5 w-16 text-center">전체너비(%)</th>
+                        <th className="px-2 py-1.5 w-16 text-center">라벨너비(%)</th>
                         <th className="px-2 py-1.5 w-14 text-center">높이(pt)</th>
-                        <th className="px-2 py-1.5 w-14 text-center">읽기전용</th>
+                        <th className="px-2 py-1.5 w-14 text-center">입력잠금</th>
                         <th className="px-2 py-1.5 w-14 text-center">DB저장</th>
                         <th className="px-2 py-1.5 w-8"></th>
                       </tr>
@@ -927,6 +940,17 @@ function NewTemplateWizard({
                           <td className="px-2 py-1.5 text-center">
                             <Input
                               type="number"
+                              min={1}
+                              max={99}
+                              value={field.labelWidth || 30}
+                              onChange={(e) => updateField(idx, { labelWidth: Math.min(99, Math.max(1, Number(e.target.value))) })}
+                              className="h-7 text-xs text-center w-full"
+                              title="라벨셀🔴 비율 % (나머지는 입력셀🔵)"
+                            />
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
+                            <Input
+                              type="number"
                               min={20}
                               max={300}
                               value={field.height || 40}
@@ -940,6 +964,7 @@ function NewTemplateWizard({
                               checked={field.readOnly === true}
                               onChange={(e) => updateField(idx, { readOnly: e.target.checked })}
                               className="w-3.5 h-3.5"
+                              title="입력셀🔵 잠금"
                             />
                           </td>
                           <td className="px-2 py-1.5 text-center">
@@ -965,7 +990,7 @@ function NewTemplateWizard({
                   </table>
                 </div>
                 <p className="text-xs text-slate-400">
-                  너비%: 같은 줄 합이 100 초과 시 자동 줄바꿈 / ☑ DB저장: 최종 제출 시 DB에 저장
+                  필드 1개 = 라벨셀🔴 + 입력셀🔵 자동 쌍 / 라벨너비%: 라벨셀🔴 비율 (나머지가 입력셀🔵) / 입력잠금☑: 입력셀🔵을 잠가 조회 전용으로 만듦
                 </p>
               </div>
             </div>
