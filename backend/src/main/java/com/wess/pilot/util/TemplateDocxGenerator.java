@@ -250,6 +250,9 @@ public final class TemplateDocxGenerator {
      * 입력셀 🔵 (readOnly=false): 흰 배경, SDT Content Control.
      * 문서 보호 forms 모드에서 이 영역만 편집 가능.
      * DocxFieldValidator 가 w:tag 값으로 key 를 검증한다.
+     *
+     * ※ block-level SDT(<w:tc>→<w:sdt>) 는 OnlyOffice 에서 셀 너비를 무시하는 버그가 있어
+     *    paragraph 안에 inline SDT(<w:p>→<w:sdt>→<w:r>) 방식으로 배치한다.
      */
     private static String inputSdtCell(int widthDxa, String key) {
         return "<w:tc>"
@@ -257,15 +260,18 @@ public final class TemplateDocxGenerator {
                 + "<w:tcW w:w=\"" + widthDxa + "\" w:type=\"dxa\"/>"
                 + tcMargins()
                 + "</w:tcPr>"
+                + "<w:p>"
+                + "<w:pPr><w:spacing w:before=\"0\" w:after=\"0\"/></w:pPr>"
                 + "<w:sdt>"
                 + "<w:sdtPr>"
                 + "<w:tag w:val=\"" + escapeXml(key != null ? key : "") + "\"/>"
                 + "<w:text/>"
                 + "</w:sdtPr>"
                 + "<w:sdtContent>"
-                + "<w:p><w:pPr><w:spacing w:before=\"0\" w:after=\"0\"/></w:pPr></w:p>"
+                + "<w:r><w:rPr/><w:t></w:t></w:r>"
                 + "</w:sdtContent>"
                 + "</w:sdt>"
+                + "</w:p>"
                 + "</w:tc>";
     }
 
