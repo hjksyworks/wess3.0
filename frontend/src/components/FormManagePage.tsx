@@ -456,33 +456,54 @@ function TemplateEditPanel({
                     </td>
                     <td className="px-2 py-1.5 text-center">
                       <Input
-                        type="number"
-                        min={10}
-                        max={100}
+                        type="text"
+                        inputMode="numeric"
                         value={field.width || 100}
-                        onChange={(e) => updateField(idx, { width: Math.min(100, Math.max(10, Number(e.target.value))) })}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9]/g, '');
+                          updateField(idx, { width: v === '' ? 0 : Number(v) });
+                        }}
+                        onBlur={(e) => {
+                          const n = Number(e.target.value);
+                          updateField(idx, { width: Math.min(100, Math.max(10, !n ? 100 : n)) });
+                        }}
                         className="h-7 text-xs text-center w-full"
+                        placeholder="10~100"
                       />
                     </td>
                     <td className="px-2 py-1.5 text-center">
                       <Input
-                        type="number"
-                        min={1}
-                        max={99}
+                        type="text"
+                        inputMode="numeric"
                         value={field.labelWidth || 30}
-                        onChange={(e) => updateField(idx, { labelWidth: Math.min(99, Math.max(1, Number(e.target.value))) })}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9]/g, '');
+                          updateField(idx, { labelWidth: v === '' ? 0 : Number(v) });
+                        }}
+                        onBlur={(e) => {
+                          const n = Number(e.target.value);
+                          updateField(idx, { labelWidth: Math.min(99, Math.max(1, !n ? 30 : n)) });
+                        }}
                         className="h-7 text-xs text-center w-full"
+                        placeholder="1~99"
                         title="라벨셀🔴이 pair 너비에서 차지하는 % (나머지는 입력셀🔵)"
                       />
                     </td>
                     <td className="px-2 py-1.5 text-center">
                       <Input
-                        type="number"
-                        min={20}
-                        max={300}
+                        type="text"
+                        inputMode="numeric"
                         value={field.height || 40}
-                        onChange={(e) => updateField(idx, { height: Math.min(300, Math.max(20, Number(e.target.value))) })}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9]/g, '');
+                          updateField(idx, { height: v === '' ? 0 : Number(v) });
+                        }}
+                        onBlur={(e) => {
+                          const n = Number(e.target.value);
+                          updateField(idx, { height: Math.min(300, Math.max(20, !n ? 40 : n)) });
+                        }}
                         className="h-7 text-xs text-center w-full"
+                        placeholder="20~300"
                       />
                     </td>
                     <td className="px-2 py-1.5 text-center">
@@ -929,33 +950,54 @@ function NewTemplateWizard({
                           </td>
                           <td className="px-2 py-1.5 text-center">
                             <Input
-                              type="number"
-                              min={10}
-                              max={100}
+                              type="text"
+                              inputMode="numeric"
                               value={field.width || 100}
-                              onChange={(e) => updateField(idx, { width: Math.min(100, Math.max(10, Number(e.target.value))) })}
+                              onChange={(e) => {
+                                const v = e.target.value.replace(/[^0-9]/g, '');
+                                updateField(idx, { width: v === '' ? 0 : Number(v) });
+                              }}
+                              onBlur={(e) => {
+                                const n = Number(e.target.value);
+                                updateField(idx, { width: Math.min(100, Math.max(10, !n ? 100 : n)) });
+                              }}
                               className="h-7 text-xs text-center w-full"
+                              placeholder="10~100"
                             />
                           </td>
                           <td className="px-2 py-1.5 text-center">
                             <Input
-                              type="number"
-                              min={1}
-                              max={99}
+                              type="text"
+                              inputMode="numeric"
                               value={field.labelWidth || 30}
-                              onChange={(e) => updateField(idx, { labelWidth: Math.min(99, Math.max(1, Number(e.target.value))) })}
+                              onChange={(e) => {
+                                const v = e.target.value.replace(/[^0-9]/g, '');
+                                updateField(idx, { labelWidth: v === '' ? 0 : Number(v) });
+                              }}
+                              onBlur={(e) => {
+                                const n = Number(e.target.value);
+                                updateField(idx, { labelWidth: Math.min(99, Math.max(1, !n ? 30 : n)) });
+                              }}
                               className="h-7 text-xs text-center w-full"
+                              placeholder="1~99"
                               title="라벨셀🔴 비율 % (나머지는 입력셀🔵)"
                             />
                           </td>
                           <td className="px-2 py-1.5 text-center">
                             <Input
-                              type="number"
-                              min={20}
-                              max={300}
+                              type="text"
+                              inputMode="numeric"
                               value={field.height || 40}
-                              onChange={(e) => updateField(idx, { height: Math.min(300, Math.max(20, Number(e.target.value))) })}
+                              onChange={(e) => {
+                                const v = e.target.value.replace(/[^0-9]/g, '');
+                                updateField(idx, { height: v === '' ? 0 : Number(v) });
+                              }}
+                              onBlur={(e) => {
+                                const n = Number(e.target.value);
+                                updateField(idx, { height: Math.min(300, Math.max(20, !n ? 40 : n)) });
+                              }}
                               className="h-7 text-xs text-center w-full"
+                              placeholder="20~300"
                             />
                           </td>
                           <td className="px-2 py-1.5 text-center">
