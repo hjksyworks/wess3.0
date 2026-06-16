@@ -40,7 +40,16 @@ public final class TemplateDocxGenerator {
             writeEntry(zos, "_rels/.rels", rels());
             writeEntry(zos, "word/_rels/document.xml.rels", wordRels());
             writeEntry(zos, "word/settings.xml", settingsXml());
-            writeEntry(zos, "word/document.xml", document(title, fields));
+            String docXml = document(title, fields);
+            // ── DEBUG: XML 파일로 덤프 (docker exec -it springboot-app cat /tmp/wess_debug.xml) ──
+            try {
+                java.nio.file.Files.writeString(
+                        java.nio.file.Path.of("/tmp/wess_debug.xml"), docXml);
+                System.err.println("[WESS-DEBUG] document.xml → /tmp/wess_debug.xml");
+            } catch (Exception dbgEx) {
+                System.err.println("[WESS-DEBUG] 파일 쓰기 실패: " + dbgEx.getMessage());
+            }
+            writeEntry(zos, "word/document.xml", docXml);
             zos.finish();
             return baos.toByteArray();
         } catch (IOException e) {
@@ -208,6 +217,10 @@ public final class TemplateDocxGenerator {
             int labelW = pairW * lw / 100;
             int inputW = pairW - labelW;
 
+            // ── DEBUG: 셀 너비 계산 로그 (docker logs springboot-app) ──
+            System.err.printf("[WESS-DEBUG] field=%s pct=%d/%d pairW=%d lw=%d%% labelW=%d inputW=%d readOnly=%b%n",
+                    f.getKey(), pct, totalPct, pairW, lw, labelW, inputW, f.isReadOnly());
+
             // 라벨셀 🔴 — 항상 생성 (문서보호로 편집 불가)
             sb.append(labelCell(labelW, f.getLabel()));
 
@@ -294,6 +307,8 @@ public final class TemplateDocxGenerator {
     private static String tableProps() {
         return "<w:tblPr>"
                 + "<w:tblW w:w=\"" + TABLE_WIDTH + "\" w:type=\"dxa\"/>"
+                // fixed layout: 셀 너비 선언값을 강제 적용 (auto 시 빈 SDT 셀이 축소됨)
+                + "<w:tblLayout w:type=\"fixed\"/>"
                 + "<w:tblBorders>"
                 + border("top") + border("left") + border("bottom") + border("right")
                 + border("insideH") + border("insideV")
