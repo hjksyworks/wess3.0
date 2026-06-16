@@ -110,26 +110,56 @@ public final class TemplateDocxGenerator {
     // ─── 행 분기 ─────────────────────────────────────────────────────────────
 
     /**
-     * 필드 목록을 width% 누적 기준으로 행 단위로 묶는다.
-     * 누적이 100 초과 시 새 행으로 분리.
+     * 필드 목록을 rowGroup 기준으로 행 단위로 묶는다.
+     *
+     * rowGroup 형식: "행번호-셀순서" (예: "1-1", "1-2", "2-1")
+     * - 행번호가 같은 필드는 같은 표 행에 배치
+     * - 셀순서로 좌→우 정렬
+     * - rowGroup 미설정 필드는 각각 별도 행으로 처리
      */
     private static List<List<FormField>> groupIntoRows(List<FormField> fields) {
-        List<List<FormField>> rows = new ArrayList<>();
-        List<FormField> current = new ArrayList<>();
-        int accumulated = 0;
+        // rowGroup 있는 필드: LinkedHashMap으로 행번호 순서 유지
+        java.util.LinkedHashMap<String, List<FormField>> grouped = new java.util.LinkedHashMap<>();
+        List<List<FormField>> ungrouped = new ArrayList<>();
+        int ungroupedSeq = 0;
 
         for (FormField f : fields) {
-            int w = effectiveWidth(f);
-            if (!current.isEmpty() && accumulated + w > 100) {
-                rows.add(current);
-                current = new ArrayList<>();
-                accumulated = 0;
+            String rg = f.getRowGroup();
+            if (rg != null && !rg.trim().isEmpty()) {
+                String rowKey = parseRowNum(rg);   // "1-2" → "1"
+                grouped.computeIfAbsent(rowKey, k -> new ArrayList<>()).add(f);
+            } else {
+                // rowGroup 없으면 단독 행
+                ungrouped.add(java.util.List.of(f));
             }
-            current.add(f);
-            accumulated += w;
         }
-        if (!current.isEmpty()) rows.add(current);
+
+        // rowGroup 행: 셀순서(두 번째 숫자)로 정렬
+        List<List<FormField>> rows = new ArrayList<>();
+        for (List<FormField> row : grouped.values()) {
+            row.sort(java.util.Comparator.comparingInt(f -> parseCellOrder(f.getRowGroup())));
+            rows.add(row);
+        }
+        rows.addAll(ungrouped);
         return rows;
+    }
+
+    /** "1-2" → "1" (행번호 추출) */
+    private static String parseRowNum(String rowGroup) {
+        int dash = rowGroup.indexOf('-');
+        return dash > 0 ? rowGroup.substring(0, dash).trim() : rowGroup.trim();
+    }
+
+    /** "1-2" → 2 (셀 순서 추출, 없으면 0) */
+    private static int parseCellOrder(String rowGroup) {
+        if (rowGroup == null) return 0;
+        int dash = rowGroup.indexOf('-');
+        if (dash < 0 || dash >= rowGroup.length() - 1) return 0;
+        try {
+            return Integer.parseInt(rowGroup.substring(dash + 1).trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     // ─── 표 행 생성 ──────────────────────────────────────────────────────────

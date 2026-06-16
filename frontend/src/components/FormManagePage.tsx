@@ -384,8 +384,9 @@ function TemplateEditPanel({
                   <th className="px-1.5 py-1.5 w-12 text-center">순서</th>
                   <th className="px-2 py-1.5 w-5">#</th>
                   <th className="px-2 py-1.5">항목명</th>
-                  <th className="px-2 py-1.5 w-24">키 (key)</th>
-                  <th className="px-2 py-1.5 w-24">타입</th>
+                  <th className="px-2 py-1.5 w-20">키 (key)</th>
+                  <th className="px-2 py-1.5 w-20">타입</th>
+                  <th className="px-2 py-1.5 w-20 text-center">행-셀</th>
                   <th className="px-2 py-1.5 w-16 text-center">너비(%)</th>
                   <th className="px-2 py-1.5 w-16 text-center">높이(pt)</th>
                   <th className="px-2 py-1.5 w-14 text-center">읽기전용</th>
@@ -446,6 +447,14 @@ function TemplateEditPanel({
                     </td>
                     <td className="px-2 py-1.5 text-center">
                       <Input
+                        value={field.rowGroup ?? ""}
+                        onChange={(e) => updateField(idx, { rowGroup: e.target.value })}
+                        placeholder="1-1"
+                        className="h-7 text-xs text-center font-mono"
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-center">
+                      <Input
                         type="number"
                         min={10}
                         max={100}
@@ -500,7 +509,7 @@ function TemplateEditPanel({
 
         {/* 안내 */}
         <p className="text-xs text-slate-400">
-          너비%: 같은 줄 필드의 합이 100 초과 시 자동 줄바꿈 / ☑ DB저장: 학생 최종 제출 시 DB에 기록
+          행-셀: "1-1","1-2" 같은 행번호끼리 같은 행에 배치, 셀번호로 좌→우 순서 결정 / ☑ DB저장: 최종 제출 시 DB에 기록
         </p>
       </div>
 
@@ -835,8 +844,9 @@ function NewTemplateWizard({
                       <tr className="bg-slate-100 text-slate-500 text-left">
                         <th className="px-1.5 py-1.5 w-12 text-center">순서</th>
                         <th className="px-2 py-1.5">항목명</th>
-                        <th className="px-2 py-1.5 w-24">키 (key)</th>
-                        <th className="px-2 py-1.5 w-20">타입</th>
+                        <th className="px-2 py-1.5 w-20">키 (key)</th>
+                        <th className="px-2 py-1.5 w-18">타입</th>
+                        <th className="px-2 py-1.5 w-18 text-center">행-셀</th>
                         <th className="px-2 py-1.5 w-14 text-center">너비(%)</th>
                         <th className="px-2 py-1.5 w-14 text-center">높이(pt)</th>
                         <th className="px-2 py-1.5 w-14 text-center">읽기전용</th>
@@ -895,6 +905,14 @@ function NewTemplateWizard({
                                 ),
                               )}
                             </Select>
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
+                            <Input
+                              value={field.rowGroup ?? ""}
+                              onChange={(e) => updateField(idx, { rowGroup: e.target.value })}
+                              placeholder="1-1"
+                              className="h-7 text-xs text-center font-mono"
+                            />
                           </td>
                           <td className="px-2 py-1.5 text-center">
                             <Input

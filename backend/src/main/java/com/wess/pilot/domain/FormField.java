@@ -27,9 +27,15 @@ public class FormField {
     /** 학생이 수정 불가(읽기 전용) 여부. 기본 false */
     private boolean readOnly = false;
 
-    /** 가로 너비 % (10~100). 누적 합이 100 초과 시 DOCX에서 새 행으로 분기. 기본 100 */
+    /** 가로 너비 % (10~100). 같은 행 내 셀 너비 비율. 기본 100 */
     private int width = 100;
 
-    /** 셀 높이 pt. textarea 계열에 주로 사용. 기본 40 */
+    /** 셀 높이 pt. 기본 40 */
     private int height = 40;
+
+    /**
+     * DOCX 표 레이아웃 위치. "행번호-셀순서" 형식 (예: "1-1", "1-2", "2-1").
+     * 같은 행번호끼리 한 표 행에 배치, 셀순서로 좌→우 정렬.
+     */
+    private String rowGroup;
 }
