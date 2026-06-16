@@ -18,7 +18,11 @@ export interface FormField {
   key: string;
   /** 화면에 표시되는 항목명 (예: "주요 수행 업무") */
   label: string;
-  type: "text" | "textarea" | "date";
+  type: "text" | "textarea" | "date" | "combo" | "checkbox";
+  /** 학생 최종 제출 시 journals.content(DB)에 저장할지 여부. 기본 true */
+  saveToDb?: boolean;
+  /** combo/checkbox 타입일 때 선택 옵션 목록 */
+  options?: string[];
 }
 
 export interface FormTemplate {
@@ -33,6 +37,10 @@ export interface FormTemplate {
   templateFileKey?: string;
   /** 첨부된 docx 양식 원본 파일명 (선택) */
   templateFileName?: string;
+  /** OnlyOffice 에디터 설정 — editor-config API 응답 시 채워짐 */
+  documentUrl?: string;
+  callbackUrl?: string;
+  documentKey?: string;
 }
 
 /** 학생의 학기별 실습 배정 정보 */
