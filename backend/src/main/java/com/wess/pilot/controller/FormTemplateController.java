@@ -76,8 +76,9 @@ public class FormTemplateController {
      * SecurityConfig 에서 인증 없이 허용(OnlyOffice 컨테이너가 호출하므로 토큰 없음).
      */
     @GetMapping("/{id}/file")
-    public ResponseEntity<byte[]> file(@PathVariable Long id) throws IOException {
-        FileContent fc = formTemplateService.getFile(id);
+    public ResponseEntity<byte[]> file(@PathVariable Long id,
+            @RequestParam(name = "t", required = false) String t) throws IOException {
+        FileContent fc = formTemplateService.getFile(id, t);
         String encodedName = java.net.URLEncoder.encode(fc.getFileName(), StandardCharsets.UTF_8)
                 .replace("+", "%20");
         return ResponseEntity.ok()
@@ -94,8 +95,9 @@ public class FormTemplateController {
      */
     @PostMapping("/{id}/callback")
     public Map<String, Object> callback(@PathVariable Long id,
+                                        @RequestParam(name = "t", required = false) String t,
                                         @RequestBody OnlyOfficeCallbackRequest callback) {
-        return formTemplateService.handleCallback(id, callback);
+        return formTemplateService.handleCallback(id, t, callback);
     }
 
     /**

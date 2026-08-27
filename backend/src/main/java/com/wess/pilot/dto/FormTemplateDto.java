@@ -20,6 +20,7 @@ public class FormTemplateDto {
     private String subject;
     private String name;
     private List<FormField> fields;
+    private String cadence;
     private String templateFileKey;
     private String templateFileName;
     private LocalDate createdDate;
@@ -36,6 +37,7 @@ public class FormTemplateDto {
         dto.setSemester(entity.getSemester());
         dto.setSubject(entity.getSubject());
         dto.setName(entity.getName());
+        dto.setCadence(entity.getCadence() != null ? entity.getCadence().name() : "WEEKLY");
         dto.setFields(entity.getFields());
         dto.setTemplateFileKey(entity.getTemplateFileKey());
         dto.setTemplateFileName(entity.getTemplateFileName());

@@ -25,4 +25,7 @@ public class FormTemplateCreateRequest {
     private String name;
 
     private List<FormField> fields;
+
+    /** DAILY | WEEKLY (미지정 시 WEEKLY) */
+    private String cadence;
 }

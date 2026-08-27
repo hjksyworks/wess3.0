@@ -25,6 +25,8 @@ public class JournalDto {
     private LocalDate endDate;
     private Map<String, String> content;
     private LocalDate submittedDate;
+    private LocalDate entryDate;
+    private String cadence;
     private boolean hasFeedback;
     private Long studentId;
     private String studentName;
@@ -50,6 +52,9 @@ public class JournalDto {
         dto.setEndDate(journal.getEndDate());
         dto.setContent(journal.getContent());
         dto.setSubmittedDate(journal.getSubmittedDate());
+        dto.setEntryDate(journal.getEntryDate());
+        com.wess.pilot.domain.FormTemplate _ft = journal.getEnrollment().getFormTemplate();
+        dto.setCadence(_ft != null && _ft.getCadence() != null ? _ft.getCadence().name() : "WEEKLY");
         dto.setStudentId(journal.getEnrollment().getStudent().getId());
         dto.setStudentName(journal.getEnrollment().getStudent().getName());
         dto.setFileUrl("/api/journals/" + journal.getId() + "/file");

@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.ByteArrayOutputStream;
+import java.net.URI;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +46,7 @@ public class PdfExportService {
     private final FeedbackRepository feedbackRepository;
     private final OnlyOfficeProperties onlyOfficeProperties;
     private final RestTemplate restTemplate;
+    private final com.wess.pilot.security.LinkSigner linkSigner;
 
     @Transactional(readOnly = true)
     public byte[] exportSingle(Long journalId, boolean includeFeedback) throws IOException {
@@ -96,7 +98,8 @@ public class PdfExportService {
     /** OnlyOffice ConvertService 를 호출해 일지 docx 를 PDF 바이트로 변환한다. */
     private byte[] convertJournalToPdf(Journal journal) throws IOException {
         String convertUrl = onlyOfficeProperties.getInternalDocumentServerUrl() + onlyOfficeProperties.getConvertPath();
-        String documentUrl = onlyOfficeProperties.getInternalBackendUrl() + "/api/journals/" + journal.getId() + "/file";
+        String documentUrl = onlyOfficeProperties.getInternalBackendUrl() + "/api/journals/" + journal.getId()
+                + "/file?t=" + linkSigner.sign("journal:" + journal.getId());
         String key = "pdf-" + journal.getId() + "-" + journal.getUpdatedAt().getEpochSecond();
 
         Map<String, Object> body = new HashMap<>();
@@ -122,7 +125,10 @@ public class PdfExportService {
                 }
                 Object fileUrl = result.get("fileUrl");
                 if (Boolean.TRUE.equals(result.get("endConvert")) && fileUrl != null) {
-                    byte[] pdf = restTemplate.getForObject(String.valueOf(fileUrl), byte[].class);
+                    // URI 오버로드를 써야 한다. String 오버로드는 인자를 URI 템플릿으로 보고 다시
+                    // 인코딩하므로, 한글 파일명(%EC..)이 %25EC.. 로 이중 인코딩되어
+                    // OnlyOffice의 md5 서명 검증에 실패하고 403이 반환된다.
+                    byte[] pdf = restTemplate.getForObject(URI.create(String.valueOf(fileUrl)), byte[].class);
                     if (pdf == null) {
                         throw new IOException("변환된 PDF를 다운로드할 수 없습니다.");
                     }

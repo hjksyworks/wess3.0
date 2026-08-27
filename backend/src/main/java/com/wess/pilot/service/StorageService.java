@@ -97,6 +97,10 @@ public class StorageService {
         return "templates/" + formTemplateId + "/template.docx";
     }
 
+    public static String dailyKey(Integer year, String semester, String subject, Long studentId, java.time.LocalDate date) {
+        return year + "/" + semester + "/" + subject + "/student_" + studentId + "/day_" + date + "/log_file.docx";
+    }
+
     public static String journalKey(Integer year, String semester, String subject, Long studentId, Integer week) {
         return year + "/" + semester + "/" + subject + "/student_" + studentId + "/week_" + week + "/log_file.docx";
     }

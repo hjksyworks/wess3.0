@@ -44,6 +44,7 @@ export interface FormTemplate {
   semester: "1" | "2";
   subject: string;
   name: string;
+  cadence?: string;
   fields: FormField[];
   createdDate: string;
   /** 첨부된 docx 양식 원본의 MinIO 객체 경로 (선택) */
@@ -74,6 +75,8 @@ export interface Enrollment {
 export interface Journal {
   id: number;
   week: number;
+  entryDate?: string;
+  cadence?: string;
   status: JournalStatus;
   startDate?: string;
   endDate?: string;

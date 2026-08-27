@@ -74,6 +74,14 @@ public class Journal {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    /** 최종 제출 대기 표시. 파일을 저장하는 콜백에서 저장과 동시에 SUBMITTED 로 확정하기 위한 플래그. */
+    @Column(name = "submit_requested")
+    private Boolean submitRequested = false;
+
+    /** 일별 일지의 해당 날짜. 주별 일지는 null. */
+    @Column(name = "entry_date")
+    private LocalDate entryDate;
+
     public void touch() {
         this.updatedAt = Instant.now();
     }

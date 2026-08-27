@@ -194,6 +194,7 @@ function TemplateEditPanel({
   const [year, setYear] = React.useState(template.year);
   const [semester, setSemester] = React.useState<"1" | "2">(template.semester);
   const [subject, setSubject] = React.useState(template.subject);
+  const [cadence] = React.useState<"WEEKLY" | "DAILY">(((template.cadence as "WEEKLY" | "DAILY") ?? "WEEKLY"));
   const [fields, setFields] = React.useState<FormField[]>(template.fields ?? []);
   const [saving, setSaving] = React.useState(false);
   const [dirty, setDirty] = React.useState(false);
@@ -256,6 +257,7 @@ function TemplateEditPanel({
         year,
         semester,
         subject: subject.trim(),
+        cadence,
         fields,
       });
       onUpdate(res.data);
@@ -669,6 +671,7 @@ function NewTemplateWizard({
   const [year, setYear] = React.useState(new Date().getFullYear());
   const [semester, setSemester] = React.useState<"1" | "2">("1");
   const [subject, setSubject] = React.useState("");
+  const [cadence, setCadence] = React.useState<"WEEKLY" | "DAILY">("WEEKLY");
   const [fields, setFields] = React.useState<FormField[]>([
     { key: "tasks", label: "주요 수행 업무", type: "textarea", saveToDb: true, readOnly: false, width: 100, labelWidth: 30, height: 80 },
   ]);
@@ -714,6 +717,7 @@ function NewTemplateWizard({
         year,
         semester,
         subject: subject.trim(),
+        cadence,
         fields,
       });
       setCreatedTemplate(res.data);
@@ -858,6 +862,17 @@ function NewTemplateWizard({
                   >
                     <option value="1">1학기</option>
                     <option value="2">2학기</option>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">작성 주기</Label>
+                  <Select
+                    value={cadence}
+                    onChange={(e) => setCadence(e.target.value as "WEEKLY" | "DAILY")}
+                    className="h-8 text-sm"
+                  >
+                    <option value="WEEKLY">주별</option>
+                    <option value="DAILY">일별</option>
                   </Select>
                 </div>
               </div>

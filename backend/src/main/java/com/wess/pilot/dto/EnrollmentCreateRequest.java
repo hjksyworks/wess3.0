@@ -31,4 +31,8 @@ public class EnrollmentCreateRequest {
 
     @NotNull
     private Integer totalWeeks;
+
+    private java.time.LocalDate startDate;
+
+    private java.time.LocalDate endDate;
 }

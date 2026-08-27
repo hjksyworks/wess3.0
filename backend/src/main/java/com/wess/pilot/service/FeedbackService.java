@@ -20,9 +20,13 @@ public class FeedbackService {
 
     private final FeedbackRepository feedbackRepository;
     private final JournalRepository journalRepository;
+    private final com.wess.pilot.security.Authz authz;
 
     @Transactional(readOnly = true)
     public FeedbackDto get(Long journalId) {
+        Journal journal = journalRepository.findById(journalId)
+                .orElseThrow(() -> new ResourceNotFoundException("일지를 찾을 수 없습니다. id=" + journalId));
+        authz.assertJournalRead(journal);
         Feedback feedback = feedbackRepository.findByJournalId(journalId)
                 .orElseThrow(() -> new ResourceNotFoundException("등록된 피드백이 없습니다. journalId=" + journalId));
         return FeedbackDto.from(feedback);
@@ -31,6 +35,7 @@ public class FeedbackService {
     /** 피드백 등록/수정 → journal.status = REVIEWED */
     @Transactional
     public FeedbackDto save(Long journalId, FeedbackRequest request) {
+        authz.assertFeedbackWrite();
         Journal journal = journalRepository.findById(journalId)
                 .orElseThrow(() -> new ResourceNotFoundException("일지를 찾을 수 없습니다. id=" + journalId));
 
@@ -44,7 +49,8 @@ public class FeedbackService {
             return f;
         });
 
-        feedback.setSupervisorName(request.getSupervisorName());
+        // 작성자명은 인증 주체(로그인한 지도자)에서 도출 — 요청 본문 사칭 차단(F2)
+        feedback.setSupervisorName(authz.currentName() != null ? authz.currentName() : request.getSupervisorName());
         feedback.setDate(request.getDate() != null ? request.getDate() : LocalDate.now());
         feedback.setContent(request.getContent());
 

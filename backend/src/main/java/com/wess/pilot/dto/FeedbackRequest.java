@@ -10,7 +10,7 @@ import java.time.LocalDate;
 @Setter
 public class FeedbackRequest {
 
-    @NotBlank
+    /** 사용하지 않음 — 작성자명은 서버가 인증 주체에서 도출한다(사칭 차단). 하위호환용으로만 유지. */
     private String supervisorName;
 
     private LocalDate date;

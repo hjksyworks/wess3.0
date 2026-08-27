@@ -55,6 +55,12 @@ public class Enrollment {
     @Column(name = "total_weeks", nullable = false)
     private Integer totalWeeks;
 
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
     @Column(name = "created_date", nullable = false)
     private LocalDate createdDate;
 }

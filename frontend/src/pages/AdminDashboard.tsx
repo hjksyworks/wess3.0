@@ -340,6 +340,8 @@ function AccountsAssignmentsPanel({
   const [enrPracticeName, setEnrPracticeName] = React.useState("");
   const [enrSupervisorName, setEnrSupervisorName] = React.useState("");
   const [enrTotalWeeks, setEnrTotalWeeks] = React.useState(8);
+  const [enrStartDate, setEnrStartDate] = React.useState("");
+  const [enrEndDate, setEnrEndDate] = React.useState("");
   const [enrSubmitting, setEnrSubmitting] = React.useState(false);
   const [enrError, setEnrError] = React.useState("");
 
@@ -360,6 +362,8 @@ function AccountsAssignmentsPanel({
         practiceName: enrPracticeName.trim() || undefined,
         supervisorName: enrSupervisorName.trim() || undefined,
         totalWeeks: enrTotalWeeks,
+        startDate: enrStartDate || undefined,
+        endDate: enrEndDate || undefined,
       });
       onEnrollmentCreated(res.data as Enrollment);
       setEnrSubject("");
@@ -579,6 +583,10 @@ function AccountsAssignmentsPanel({
                 value={enrTotalWeeks}
                 onChange={(e) => setEnrTotalWeeks(Number(e.target.value))}
               />
+              <Label className="mt-3 block">실습 시작일 <span className="text-slate-400 text-xs">(일별 양식은 필수)</span></Label>
+              <Input type="date" value={enrStartDate} onChange={(e) => setEnrStartDate(e.target.value)} />
+              <Label className="mt-3 block">실습 종료일 <span className="text-slate-400 text-xs">(선택)</span></Label>
+              <Input type="date" value={enrEndDate} onChange={(e) => setEnrEndDate(e.target.value)} />
             </div>
           </div>
           <div className="space-y-1.5">

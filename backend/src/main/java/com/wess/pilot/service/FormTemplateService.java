@@ -35,6 +35,7 @@ public class FormTemplateService {
     private final StorageService storageService;
     private final OnlyOfficeProperties onlyOfficeProperties;
     private final RestTemplate restTemplate;
+    private final com.wess.pilot.security.LinkSigner linkSigner;
 
     // ─── 조회 ──────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,8 @@ public class FormTemplateService {
         template.setSubject(request.getSubject());
         template.setName(request.getName());
         template.setFields(request.getFields() != null ? request.getFields() : new ArrayList<>());
+        template.setCadence("DAILY".equalsIgnoreCase(request.getCadence())
+                ? com.wess.pilot.domain.JournalCadence.DAILY : com.wess.pilot.domain.JournalCadence.WEEKLY);
         template.setCreatedDate(LocalDate.now());
         return FormTemplateDto.from(formTemplateRepository.save(template));
     }
@@ -170,8 +173,9 @@ public class FormTemplateService {
     private void applyEditorUrls(FormTemplateDto dto) {
         String base = onlyOfficeProperties.getInternalBackendUrl();
         if (base != null && !base.isEmpty()) {
-            dto.setDocumentUrl(base + "/api/form-templates/" + dto.getId() + "/file");
-            dto.setCallbackUrl(base + "/api/form-templates/" + dto.getId() + "/callback");
+            String t = linkSigner.sign("template:" + dto.getId());
+            dto.setDocumentUrl(base + "/api/form-templates/" + dto.getId() + "/file?t=" + t);
+            dto.setCallbackUrl(base + "/api/form-templates/" + dto.getId() + "/callback?t=" + t);
         } else {
             dto.setDocumentUrl("/api/form-templates/" + dto.getId() + "/file");
             dto.setCallbackUrl("/api/form-templates/" + dto.getId() + "/callback");
@@ -181,7 +185,10 @@ public class FormTemplateService {
     // ─── 파일 스트리밍 (OnlyOffice → GET /file) ────────────────────────────────
 
     @Transactional(readOnly = true)
-    public FileContent getFile(Long id) throws IOException {
+    public FileContent getFile(Long id, String token) throws IOException {
+        if (!linkSigner.verify("template:" + id, token)) {
+            throw new org.springframework.security.access.AccessDeniedException("유효하지 않은 문서 링크입니다.");
+        }
         FormTemplate template = getOrThrow(id);
         String fileName = template.getTemplateFileName() != null
                 ? template.getTemplateFileName()
@@ -201,8 +208,12 @@ public class FormTemplateService {
     // ─── OnlyOffice 저장 콜백 (POST /callback) ─────────────────────────────────
 
     @Transactional
-    public Map<String, Object> handleCallback(Long id, OnlyOfficeCallbackRequest callback) {
+    public Map<String, Object> handleCallback(Long id, String token, OnlyOfficeCallbackRequest callback) {
         Map<String, Object> response = new LinkedHashMap<>();
+        if (!linkSigner.verify("template:" + id, token)) {
+            response.put("error", 1);
+            return response;
+        }
         FormTemplate template = formTemplateRepository.findById(id).orElse(null);
         if (template == null) {
             response.put("error", 1);
@@ -213,7 +224,10 @@ public class FormTemplateService {
         // 2: 문서 저장 완료, 6: 강제 저장
         if (status != null && (status == 2 || status == 6) && callback.getUrl() != null) {
             try {
-                byte[] content = restTemplate.getForObject(callback.getUrl(), byte[].class);
+                // URI 오버로드 필수. String 오버로드는 URI 템플릿으로 보고 재인코딩하므로
+                // OnlyOffice 콜백 URL의 한글 파일명(%EC..)이 %25EC.. 로 이중 인코딩되어
+                // md5 서명 검증에 실패하고 403 -> 저장 실패(error:1)가 된다.
+                byte[] content = restTemplate.getForObject(toInternalFileUri(callback.getUrl()), byte[].class);
                 if (content != null) {
                     String key = StorageService.templateKey(id);
                     storageService.putObject(key, content, DOCX_CONTENT_TYPE);
@@ -241,4 +255,34 @@ public class FormTemplateService {
         return formTemplateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("양식 템플릿을 찾을 수 없습니다. id=" + id));
     }
+
+    /**
+     * OnlyOffice가 콜백으로 돌려주는 파일 URL은 브라우저 세션의 Host를 따르므로
+     * https://11.11.11.99/... 형태가 된다. 외부 nginx는 자체서명 인증서를 쓰기 때문에
+     * JVM이 PKIX 검증에 실패한다(SSLHandshakeException). 파일 실체는 OnlyOffice 컨테이너에
+     * 있으므로 도커 내부망 주소(http://onlyoffice-app)로 바꿔서 평문으로 받아온다.
+     *
+     * getRawPath()/getRawQuery()를 쓰는 이유: 이미 percent-encoding된 한글 파일명을
+     * 다시 인코딩하면 md5 서명 검증에 실패해 403이 된다.
+     */
+    private java.net.URI toInternalFileUri(String rawUrl) {
+        java.net.URI original = java.net.URI.create(rawUrl);
+        String base = onlyOfficeProperties.getInternalDocumentServerUrl();
+        if (base == null || base.isEmpty()) {
+            return original;
+        }
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        java.net.URI baseUri = java.net.URI.create(base);
+        if (baseUri.getHost() == null || baseUri.getHost().equals(original.getHost())) {
+            return original;
+        }
+        StringBuilder sb = new StringBuilder(base).append(original.getRawPath());
+        if (original.getRawQuery() != null) {
+            sb.append('?').append(original.getRawQuery());
+        }
+        return java.net.URI.create(sb.toString());
+    }
+
 }

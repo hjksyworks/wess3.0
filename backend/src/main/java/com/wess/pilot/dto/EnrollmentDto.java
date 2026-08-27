@@ -25,6 +25,9 @@ public class EnrollmentDto {
     private Integer totalWeeks;
     private FormTemplateDto formTemplate;
     private LocalDate createdDate;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private String cadence;
 
     public static EnrollmentDto from(Enrollment entity) {
         return new EnrollmentDto(
@@ -38,6 +41,10 @@ public class EnrollmentDto {
                 entity.getSupervisorName(),
                 entity.getTotalWeeks(),
                 FormTemplateDto.from(entity.getFormTemplate()),
-                entity.getCreatedDate());
+                entity.getCreatedDate(),
+                entity.getStartDate(),
+                entity.getEndDate(),
+                entity.getFormTemplate() != null && entity.getFormTemplate().getCadence() != null
+                        ? entity.getFormTemplate().getCadence().name() : "WEEKLY");
     }
 }

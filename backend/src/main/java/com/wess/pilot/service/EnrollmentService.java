@@ -32,9 +32,16 @@ public class EnrollmentService {
     private final StudentRepository studentRepository;
     private final FormTemplateRepository formTemplateRepository;
     private final JournalRepository journalRepository;
+    private final com.wess.pilot.security.Authz authz;
 
     @Transactional(readOnly = true)
     public List<EnrollmentDto> list(Long studentId, Integer year, String semester) {
+        if (authz.isStudent()) {
+            // 학생은 본인 배정만 조회 가능 (파라미터 무시)
+            studentId = authz.currentStudentId();
+            year = null;
+            semester = null;
+        }
         List<Enrollment> enrollments;
         if (studentId != null) {
             enrollments = enrollmentRepository.findByStudentId(studentId);
@@ -48,7 +55,9 @@ public class EnrollmentService {
 
     @Transactional(readOnly = true)
     public EnrollmentDto findById(Long id) {
-        return EnrollmentDto.from(getEnrollmentOrThrow(id));
+        Enrollment e = getEnrollmentOrThrow(id);
+        authz.assertEnrollmentRead(e);
+        return EnrollmentDto.from(e);
     }
 
     /** 로그인한 학생 본인의 가장 최근 실습 배정 (StudentDashboard 초기 진입용) */
@@ -78,22 +87,61 @@ public class EnrollmentService {
         enrollment.setPracticeName(request.getPracticeName());
         enrollment.setSupervisorName(request.getSupervisorName());
         enrollment.setTotalWeeks(request.getTotalWeeks());
+        enrollment.setStartDate(request.getStartDate());
+        enrollment.setEndDate(request.getEndDate());
         enrollment.setCreatedDate(LocalDate.now());
 
         Enrollment saved = enrollmentRepository.save(enrollment);
 
+        com.wess.pilot.domain.JournalCadence cadence = formTemplate.getCadence() != null
+                ? formTemplate.getCadence() : com.wess.pilot.domain.JournalCadence.WEEKLY;
         List<Journal> journals = new ArrayList<>();
-        for (int week = 1; week <= request.getTotalWeeks(); week++) {
-            Journal journal = new Journal();
-            journal.setEnrollment(saved);
-            journal.setWeek(week);
-            journal.setStatus(JournalStatus.WRITING);
-            journal.setContent(new LinkedHashMap<>());
-            journal.setFileKey("");
-            journal.setFileName(week + "주차_일지.docx");
-            journal.setFileSaved(false);
-            journal.setUpdatedAt(Instant.now());
-            journals.add(journal);
+        if (cadence == com.wess.pilot.domain.JournalCadence.DAILY) {
+            LocalDate start = request.getStartDate();
+            if (start == null) {
+                throw new IllegalArgumentException("일별 양식은 실습 시작일(startDate)이 필요합니다.");
+            }
+            for (int w = 0; w < request.getTotalWeeks(); w++) {
+                LocalDate weekStart = start.plusWeeks(w);
+                for (int d = 0; d < 5; d++) {
+                    LocalDate day = weekStart.plusDays(d);
+                    if (request.getEndDate() != null && day.isAfter(request.getEndDate())) {
+                        break;
+                    }
+                    Journal journal = new Journal();
+                    journal.setEnrollment(saved);
+                    journal.setWeek(w + 1);
+                    journal.setEntryDate(day);
+                    journal.setStartDate(day);
+                    journal.setEndDate(day);
+                    journal.setStatus(JournalStatus.WRITING);
+                    journal.setContent(new LinkedHashMap<>());
+                    journal.setFileKey("");
+                    journal.setFileName(day + "_일지.docx");
+                    journal.setFileSaved(false);
+                    journal.setUpdatedAt(Instant.now());
+                    journals.add(journal);
+                }
+            }
+        } else {
+            LocalDate start = request.getStartDate();
+            for (int week = 1; week <= request.getTotalWeeks(); week++) {
+                Journal journal = new Journal();
+                journal.setEnrollment(saved);
+                journal.setWeek(week);
+                journal.setStatus(JournalStatus.WRITING);
+                journal.setContent(new LinkedHashMap<>());
+                journal.setFileKey("");
+                journal.setFileName(week + "주차_일지.docx");
+                journal.setFileSaved(false);
+                journal.setUpdatedAt(Instant.now());
+                if (start != null) {
+                    LocalDate ws = start.plusWeeks(week - 1);
+                    journal.setStartDate(ws);
+                    journal.setEndDate(ws.plusDays(4));
+                }
+                journals.add(journal);
+            }
         }
         journalRepository.saveAll(journals);
 

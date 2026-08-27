@@ -3,6 +3,7 @@ package com.wess.pilot.util;
 import com.lowagie.text.Document;
 import com.lowagie.text.Font;
 import com.lowagie.text.Paragraph;
+import com.lowagie.text.pdf.BaseFont;
 import com.lowagie.text.pdf.PdfCopy;
 import com.lowagie.text.pdf.PdfReader;
 import com.lowagie.text.pdf.PdfWriter;
@@ -21,6 +22,30 @@ import java.io.IOException;
 public final class PdfMergeUtil {
 
     private PdfMergeUtil() {
+    }
+
+
+    /** 한글 임베드 폰트 후보. 앞에서부터 존재하는 것을 사용하고, 없으면 Helvetica로 폴백한다. */
+    private static final String[] KOREAN_FONTS = {
+            "/usr/share/fonts/cjk/NotoSansCJK-Regular.ttc,1",   // index 1 = Noto Sans CJK KR
+            "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc,1",
+            "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
+    };
+
+    private static Font koreanFont(float size, int style) {
+        for (String spec : KOREAN_FONTS) {
+            String file = spec.contains(",") ? spec.substring(0, spec.indexOf(',')) : spec;
+            if (!new java.io.File(file).exists()) {
+                continue;
+            }
+            try {
+                BaseFont bf = BaseFont.createFont(spec, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+                return new Font(bf, size, style);
+            } catch (Exception ignored) {
+                // 다음 후보로
+            }
+        }
+        return new Font(Font.HELVETICA, size, style);
     }
 
     public static byte[] appendTextPage(byte[] basePdf, String title, String body) throws IOException {
@@ -58,8 +83,8 @@ public final class PdfMergeUtil {
             PdfWriter.getInstance(document, out);
             document.open();
 
-            Font titleFont = new Font(Font.HELVETICA, 16, Font.BOLD);
-            Font bodyFont = new Font(Font.HELVETICA, 11, Font.NORMAL);
+            Font titleFont = koreanFont(16, Font.BOLD);
+            Font bodyFont = koreanFont(11, Font.NORMAL);
 
             document.add(new Paragraph(title, titleFont));
             document.add(new Paragraph(" "));

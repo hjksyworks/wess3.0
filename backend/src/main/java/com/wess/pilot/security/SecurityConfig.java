@@ -55,6 +55,7 @@ public class SecurityConfig {
                         .antMatchers(HttpMethod.HEAD, "/api/form-templates/*/file").permitAll()
                         .antMatchers(HttpMethod.POST, "/api/form-templates/*/callback").permitAll()
                         .antMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+                        .antMatchers("/api/export/**").hasAuthority("ROLE_ADMIN")
                         .antMatchers(HttpMethod.POST, "/api/enrollments").hasAuthority("ROLE_ADMIN")
                         .antMatchers(HttpMethod.POST, "/api/form-templates").hasAuthority("ROLE_ADMIN")
                         .antMatchers(HttpMethod.PUT, "/api/form-templates/*").hasAuthority("ROLE_ADMIN")

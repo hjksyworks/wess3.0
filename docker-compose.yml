@@ -9,6 +9,8 @@
 services:
   nginx:
     image: nginx:latest
+    environment:
+      - TZ=Asia/Seoul
     ports:
       - "80:80"
       - "443:443"
@@ -29,6 +31,7 @@ services:
       dockerfile: Dockerfile
     # image: eclipse-temurin:8-jdk  # (기존 placeholder 방식은 더 이상 사용하지 않음)
     environment:
+      - TZ=Asia/Seoul
       # --- DB (application.yml 기본값과 일치시킬 것) ---
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-db:5432/wess
       - SPRING_DATASOURCE_USERNAME=wess
@@ -41,6 +44,10 @@ services:
       # --- OnlyOffice ---
       - ONLYOFFICE_INTERNAL_URL=http://onlyoffice-app
       - BACKEND_INTERNAL_URL=http://springboot-app:8080
+      # JWT 서명 시크릿(서버 생성). 공개 저장소 기본값 대신 사용해 토큰 위조 차단.
+      - WESS_JWT_SECRET=${WESS_JWT_SECRET}
+    volumes:
+      - ../fonts:/usr/share/fonts/cjk:ro   # 한글 폰트 (피드백 PDF 페이지 임베드용)
     depends_on:
       - postgres-db
       - minio-storage
@@ -52,6 +59,7 @@ services:
     ports:
       - "8000:80"   # 호스트 8000 -> 컨테이너 80 (테스트/example 페이지 직접 접속용)
     environment:
+      - TZ=Asia/Seoul
       - JWT_ENABLED=false
       - NODE_TLS_REJECT_UNAUTHORIZED=0   # 내부 자체서명 인증서 허용 (파일럿용)
       - JWT_SECRET=cetis_office_secret_key
@@ -61,6 +69,7 @@ services:
       - ALLOW_META_IP_ADDRESS=true
     volumes:
       - ../ds-example.conf:/etc/supervisor/conf.d/ds-example.conf:ro   # ds:example autostart=true 영구 적용
+      - ../fonts:/usr/share/fonts/cjk:ro   # 한글 폰트 (서버측 DOCX->PDF 변환용)
     networks:
       - pilot-network
 
@@ -68,6 +77,7 @@ services:
     image: minio/minio
     command: server /data --console-address ":9001"
     environment:
+      - TZ=Asia/Seoul
       - MINIO_ROOT_USER=admin_access_key
       - MINIO_ROOT_PASSWORD=admin_secret_key
       - MINIO_BROWSER_REDIRECT_URL=https://11.11.11.99:9001/
@@ -79,8 +89,9 @@ services:
 
   postgres-db:
     image: postgres:15
-    command: postgres -c password_encryption=md5
+    command: postgres -c password_encryption=md5 -c timezone=Asia/Seoul -c log_timezone=Asia/Seoul
     environment:
+      - TZ=Asia/Seoul
       - POSTGRES_USER=wess
       - POSTGRES_PASSWORD=your_secure_password   # springboot-app의 SPRING_DATASOURCE_PASSWORD와 동일해야 함, 운영 전 변경 필요
       - POSTGRES_DB=wess

@@ -54,6 +54,10 @@ public class FormTemplate {
     @Column(name = "template_file_name")
     private String templateFileName;
 
+    @javax.persistence.Enumerated(javax.persistence.EnumType.STRING)
+    @Column(name = "cadence", length = 10)
+    private JournalCadence cadence;
+
     @Column(name = "created_date", nullable = false)
     private LocalDate createdDate;
 

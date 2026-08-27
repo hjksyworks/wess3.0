@@ -38,9 +38,10 @@ export default function StudentDashboard() {
   const [feedbacks, setFeedbacks] = React.useState<Record<number, Feedback>>({});
   const [loading, setLoading] = React.useState(true);
 
-  const [writeWeek, setWriteWeek] = React.useState<number | null>(null);
+  const [writeId, setWriteId] = React.useState<number | null>(null);
   const [draft, setDraft] = React.useState<Record<string, string>>({});
   const [saving, setSaving] = React.useState(false);
+  const [saveMsg, setSaveMsg] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     (async () => {
@@ -88,51 +89,203 @@ export default function StudentDashboard() {
     .sort((a, b) => b.week - a.week)
     .slice(0, 3);
 
-  const sortedJournals = [...journals].sort((a, b) => a.week - b.week);
+  const sortedJournals = [...journals].sort((a, b) => {
+    if (a.entryDate && b.entryDate) return a.entryDate.localeCompare(b.entryDate);
+    return a.week - b.week;
+  });
+  const cadence = journals.find((j) => j.cadence)?.cadence ?? "WEEKLY";
+
+  function kindOf(j: Journal): "rev" | "sub" | "draft" | "none" {
+    if (j.status === "REVIEWED") return "rev";
+    if (j.status === "SUBMITTED") return "sub";
+    if (Object.values(j.content ?? {}).some((v) => v && v.trim().length > 0)) return "draft";
+    return "none";
+  }
+  const kindStyle: Record<string, { bg: string; fg: string; label: string }> = {
+    rev: { bg: "bg-green-50", fg: "text-green-700", label: "검토완료" },
+    sub: { bg: "bg-blue-50", fg: "text-blue-700", label: "제출완료" },
+    draft: { bg: "bg-amber-50", fg: "text-amber-700", label: "작성중" },
+    none: { bg: "bg-slate-50", fg: "text-slate-400", label: "미작성" },
+  };
+  const dowLabels = ["일", "월", "화", "수", "목", "금", "토"];
+  const ymd = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const parseYmd = (str: string) => {
+    const [y, m, d] = str.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  function renderWeeklyList() {
+    return (
+      <div className="flex flex-col gap-2">
+        {sortedJournals.map((j) => {
+          const st = kindStyle[kindOf(j)];
+          return (
+            <div key={j.id} className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3">
+              <div className="min-w-[70px]">
+                <div className="font-medium text-sm">{j.week}주차</div>
+                <div className="text-xs text-slate-400">
+                  {j.startDate && j.endDate ? `${j.startDate} ~ ${j.endDate}` : "-"}
+                </div>
+              </div>
+              <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${st.bg} ${st.fg}`}>{st.label}</span>
+              <Button size="sm" variant={j.status === "WRITING" ? "default" : "outline"} className="ml-auto" onClick={() => openWrite(j)}>
+                {j.status === "WRITING" ? "작성하기" : "보기"}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function renderDailyCalendar() {
+    const dj = new Map<string, Journal>();
+    sortedJournals.forEach((j) => { if (j.entryDate) dj.set(j.entryDate, j); });
+    const keys = [...dj.keys()].sort();
+    if (keys.length === 0)
+      return <p className="text-sm text-slate-400 py-6 text-center">생성된 일지가 없습니다.</p>;
+    const first = parseYmd(keys[0]);
+    const last = parseYmd(keys[keys.length - 1]);
+    const start = new Date(first); start.setDate(first.getDate() - first.getDay());
+    const end = new Date(last); end.setDate(last.getDate() + (6 - last.getDay()));
+    const today = ymd(new Date());
+    const rows: React.ReactNode[] = [];
+    const cur = new Date(start);
+    let wk = 0;
+    while (cur <= end) {
+      const cells: React.ReactNode[] = [];
+      for (let i = 0; i < 7; i++) {
+        const ds = ymd(cur);
+        const dom = cur.getDate();
+        const j = dj.get(ds) ?? null;
+        const isToday = ds === today;
+        const dcol = i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-slate-700";
+        if (j) {
+          const st = kindStyle[kindOf(j)];
+          cells.push(
+            <button key={ds} onClick={() => openWrite(j)}
+              className={`min-h-[58px] rounded-lg border p-1.5 text-left flex flex-col justify-between ${st.bg} ${isToday ? "border-2 border-blue-500" : "border-slate-200"}`}>
+              <span className={`text-xs ${dcol}`}>{dom}</span>
+              <span className={`text-[10px] font-medium ${st.fg}`}>{st.label}</span>
+            </button>,
+          );
+        } else {
+          cells.push(
+            <div key={ds} className="min-h-[58px] rounded-lg border border-slate-100 bg-slate-50 p-1.5 opacity-60">
+              <span className="text-xs text-slate-300">{dom}</span>
+            </div>,
+          );
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+      rows.push(<div key={wk++} className="grid grid-cols-7 gap-1.5">{cells}</div>);
+    }
+    return (
+      <div className="flex flex-col gap-1.5">
+        <div className="grid grid-cols-7 gap-1.5 mb-1">
+          {dowLabels.map((d, i) => (
+            <div key={d} className={`text-center text-xs ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-slate-500"}`}>{d}</div>
+          ))}
+        </div>
+        {rows}
+      </div>
+    );
+  }
 
   function openWrite(journal: Journal) {
-    setWriteWeek(journal.week);
+    setWriteId(journal.id);
     setDraft({ ...journal.content });
+    setSaveMsg(null);
   }
 
   function closeWrite() {
-    setWriteWeek(null);
+    setWriteId(null);
+    setSaveMsg(null);
   }
 
-  const currentJournal = journals.find((j) => j.week === writeWeek) ?? null;
+  const currentJournal = journals.find((j) => j.id === writeId) ?? null;
   const isEditable = currentJournal?.status === "WRITING";
 
-  async function saveJournal(submit: boolean) {
+  const editorDocKey = currentJournal
+    ? currentJournal.documentKey ??
+      `journal-${currentJournal.id}-${currentJournal.status}-${currentJournal.submittedDate ?? currentJournal.startDate ?? ""}`
+    : "";
+
+  function extractError(e: unknown, fallback: string): string {
+    const err = e as { response?: { data?: { message?: string } } };
+    return err?.response?.data?.message ?? fallback;
+  }
+
+  // 임시저장: 폼 필드 저장 + OnlyOffice 강제저장(확정). 상태는 WRITING 유지, 편집기 열어둠.
+  async function saveDraft() {
     if (!currentJournal) return;
     setSaving(true);
-    const payload = {
-      content: draft,
-      startDate: currentJournal.startDate,
-      endDate: currentJournal.endDate,
-      status: (submit ? "SUBMITTED" : "WRITING") as JournalStatus,
-    };
+    setSaveMsg(null);
     try {
-      await api.put(`/journals/${currentJournal.id}`, payload);
-    } catch {
-      // 백엔드 미연동 시 화면 상태만 갱신
+      await api.put(`/journals/${currentJournal.id}`, {
+        content: draft,
+        startDate: currentJournal.startDate,
+        endDate: currentJournal.endDate,
+      });
+      await api.post(`/journals/${currentJournal.id}/forcesave`, { documentKey: editorDocKey });
+      setSaveMsg("임시저장되었습니다.");
+    } catch (e) {
+      setSaveMsg("저장 실패: " + extractError(e, "문서 저장을 확인하지 못했습니다. 다시 시도해 주세요."));
+    } finally {
+      setSaving(false);
     }
-    setJournals((prev) =>
-      prev.map((j) =>
-        j.id === currentJournal.id
-          ? {
-              ...j,
-              ...payload,
-              submittedDate: submit ? new Date().toISOString().slice(0, 10) : j.submittedDate,
-            }
-          : j,
-      ),
-    );
-    setSaving(false);
-    setWriteWeek(null);
+  }
+
+  // 최종 제출: 폼 필드 저장 + 제출대기 표시 후 편집기를 닫는다.
+  // 편집기 종료 콜백이 최신 내용을 저장하면서 '동시에' SUBMITTED 로 확정하므로 마지막 편집이 유실되지 않는다.
+  async function submitFinal() {
+    if (!currentJournal) return;
+    const jid = currentJournal.id;
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      await api.put(`/journals/${jid}`, {
+        content: draft,
+        startDate: currentJournal.startDate,
+        endDate: currentJournal.endDate,
+      });
+      await api.post(`/journals/${jid}/submit`, { documentKey: editorDocKey });
+      setWriteId(null); // 편집기 unmount -> 종료 콜백이 저장+제출확정
+      pollSubmitted(jid);
+    } catch (e) {
+      setSaveMsg("제출 실패: " + extractError(e, "문서 저장을 확인하지 못했습니다. 제출이 취소되었습니다."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // 제출 확정을 백그라운드 폴링. 콜백이 지연되면 폴백 확정을 호출한다.
+  async function pollSubmitted(jid: number) {
+    for (let i = 0; i < 18; i++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      try {
+        const res = await api.get(`/journals/${jid}`);
+        const j = res.data as Journal;
+        if (j.status === "SUBMITTED" || j.status === "REVIEWED") {
+          setJournals((prev) => prev.map((x) => (x.id === jid ? { ...x, ...j } : x)));
+          return;
+        }
+      } catch {
+        // 재시도
+      }
+    }
+    try {
+      await api.post(`/journals/${jid}/finalize-submit`, {});
+      const res = await api.get(`/journals/${jid}`);
+      setJournals((prev) => prev.map((x) => (x.id === jid ? { ...x, ...(res.data as Journal) } : x)));
+    } catch {
+      // 무시
+    }
   }
 
   const feedbackData = currentJournal ? feedbacks[currentJournal.id] : null;
-  const currentIdx = sortedJournals.findIndex((j) => j.week === writeWeek);
+  const currentIdx = sortedJournals.findIndex((j) => j.id === writeId);
 
   function navigateWeek(direction: 1 | -1) {
     const nextIdx = currentIdx + direction;
@@ -248,47 +401,26 @@ export default function StudentDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">주차별 실습 일지</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">
+                {cadence === "DAILY" ? "일별 실습 일지" : "주차별 실습 일지"}
+              </CardTitle>
+              <div className="flex items-center gap-3 text-xs text-slate-500">
+                <span><span className="inline-block w-2 h-2 rounded-full bg-slate-300 align-middle mr-1"></span>미작성</span>
+                <span><span className="inline-block w-2 h-2 rounded-full bg-amber-400 align-middle mr-1"></span>작성중</span>
+                <span><span className="inline-block w-2 h-2 rounded-full bg-blue-400 align-middle mr-1"></span>제출완료</span>
+                <span><span className="inline-block w-2 h-2 rounded-full bg-green-500 align-middle mr-1"></span>검토완료</span>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-slate-500 border-b border-slate-200">
-                    <th className="py-2 pr-4">주차</th>
-                    <th className="py-2 pr-4">기간</th>
-                    <th className="py-2 pr-4">작성</th>
-                    <th className="py-2 pr-4">상태</th>
-                    <th className="py-2 pr-4">제출일</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {journals.map((j) => (
-                    <tr key={j.id} className="border-b border-slate-100 last:border-0">
-                      <td className="py-3 pr-4 font-medium">{j.week}주차</td>
-                      <td className="py-3 pr-4 text-slate-500">
-                        {j.startDate && j.endDate ? `${j.startDate} ~ ${j.endDate}` : "-"}
-                      </td>
-                      <td className="py-3 pr-4">
-                        <Button size="sm" variant={j.status === "WRITING" ? "default" : "outline"} onClick={() => openWrite(j)}>
-                          {j.status === "WRITING" ? "작성하기" : "보기"}
-                        </Button>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <Badge className={statusVariant[j.status]}>{statusLabel[j.status]}</Badge>
-                      </td>
-                      <td className="py-3 pr-4 text-slate-500">{j.submittedDate ?? "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {cadence === "DAILY" ? renderDailyCalendar() : renderWeeklyList()}
           </CardContent>
         </Card>
       </main>
 
       {/* 일지 작성/조회 풀스크린 팝업 */}
-      {writeWeek !== null && currentJournal && enrollment && (
+      {writeId !== null && currentJournal && enrollment && (
         <div className="fixed inset-0 z-50 bg-white flex flex-col">
           {/* 헤더 */}
           <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 flex-shrink-0">
@@ -335,7 +467,7 @@ export default function StudentDashboard() {
               <div className="flex-1 min-h-[400px] rounded-md border border-slate-200 overflow-hidden">
                 <OnlyOfficeEditor
                   documentUrl={currentJournal.documentUrl ?? `${window.location.origin}${currentJournal.fileUrl ?? `/api/journals/${currentJournal.id}/file`}`}
-                  documentKey={currentJournal.documentKey ?? `journal-${currentJournal.id}-${currentJournal.status}-${currentJournal.submittedDate ?? currentJournal.startDate ?? ""}`}
+                  documentKey={editorDocKey}
                   title={currentJournal.fileName ?? `${currentJournal.week}주차_일지.docx`}
                   mode={isEditable ? "edit" : "view"}
                   callbackUrl={currentJournal.callbackUrl ?? `${window.location.origin}/api/journals/${currentJournal.id}/callback`}
@@ -375,23 +507,30 @@ export default function StudentDashboard() {
 
           {/* 푸터 */}
           <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4 flex-shrink-0">
+            {saveMsg && (
+              <span
+                className={`mr-auto text-sm ${saveMsg.includes("실패") ? "text-red-500" : "text-green-600"}`}
+              >
+                {saveMsg}
+              </span>
+            )}
             {isEditable ? (
               <>
                 <Button variant="outline" onClick={closeWrite} disabled={saving}>
                   취소
                 </Button>
-                <Button variant="outline" onClick={() => saveJournal(false)} disabled={saving}>
-                  임시저장
+                <Button variant="outline" onClick={saveDraft} disabled={saving}>
+                  {saving ? "저장 중..." : "임시저장"}
                 </Button>
                 <Button
                   onClick={() => {
-                    if (window.confirm("제출 후에는 수정할 수 없습니다. 최종 제출하시겠습니까?")) {
-                      saveJournal(true);
+                    if (window.confirm("저장하면 이후 수정할 수 없습니다. 저장하시겠습니까?")) {
+                      submitFinal();
                     }
                   }}
                   disabled={saving}
                 >
-                  최종 제출
+                  {saving ? "저장 중..." : "저장"}
                 </Button>
               </>
             ) : (
