@@ -872,8 +872,9 @@ function NewTemplateWizard({
 
           {step === "info" && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
+              {/* 기본정보 한 줄 배치(넓은 화면) — 좁으면 자동으로 접힘 */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <div className="space-y-1.5 md:col-span-4">
                   <Label className="text-xs">양식명</Label>
                   <Input
                     value={name}
@@ -882,7 +883,7 @@ function NewTemplateWizard({
                     className="h-8 text-sm"
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 md:col-span-3">
                   <Label className="text-xs">교과목</Label>
                   <Input
                     value={subject}
@@ -891,7 +892,7 @@ function NewTemplateWizard({
                     className="h-8 text-sm"
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 md:col-span-2">
                   <Label className="text-xs">연도</Label>
                   <Input
                     type="number"
@@ -900,7 +901,7 @@ function NewTemplateWizard({
                     className="h-8 text-sm"
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 md:col-span-1">
                   <Label className="text-xs">학기</Label>
                   <Select
                     value={semester}
@@ -911,7 +912,7 @@ function NewTemplateWizard({
                     <option value="2">2학기</option>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 md:col-span-2">
                   <Label className="text-xs">작성 주기</Label>
                   <Select
                     value={cadence}
@@ -930,7 +931,9 @@ function NewTemplateWizard({
                 </div>
               )}
               {mode === "columns" && (
-              <div className="space-y-2">
+              /* 넓은 화면: 좌 필드목록 / 우 미리보기(고정). 좁으면 위아래로 */
+              <div className="flex flex-col 2xl:flex-row gap-4 items-start">
+              <div className="w-full 2xl:flex-1 2xl:min-w-0 space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-semibold">필드 목록</Label>
                   <Button size="sm" variant="outline" onClick={addField} className="h-8 text-xs">
@@ -1101,10 +1104,11 @@ function NewTemplateWizard({
                 <p className="text-xs text-slate-400">
                   필드 1개 = 라벨셀🔴 + 입력셀🔵 자동 쌍 / 라벨너비%: 라벨셀🔴 비율 (나머지가 입력셀🔵) / 입력잠금☑: 입력셀🔵을 잠가 조회 전용으로 만듦
                 </p>
-                <div className="space-y-1.5 pt-1">
-                  <Label className="text-xs font-semibold">미리보기</Label>
-                  <FormPreview title={name} fields={fields} />
-                </div>
+              </div>
+              <div className="w-full 2xl:w-[660px] 2xl:flex-shrink-0 2xl:sticky 2xl:top-0 space-y-1.5">
+                <Label className="text-xs font-semibold">미리보기</Label>
+                <FormPreview title={name} fields={fields} />
+              </div>
               </div>
               )}
             </div>
