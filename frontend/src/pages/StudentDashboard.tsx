@@ -126,6 +126,20 @@ export default function StudentDashboard() {
     setCalMonth(new Date(base.getFullYear(), base.getMonth(), 1));
   }, [journals, cadence]);
 
+  // 편집기를 열 때 히스토리 엔트리를 하나 쌓아, 브라우저 백버튼이 앱을 벗어나지 않고
+  // 편집기만 닫도록 한다(작성 중 이탈로 인한 내용 유실 방지).
+  React.useEffect(() => {
+    if (writeId == null) return;
+    window.history.pushState({ wessEditor: true }, "");
+    const onPop = () => {
+      setWriteId(null);
+      setEditorCfg(null);
+      setSaveMsg(null);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [writeId]);
+
   function openWrite(journal: Journal) {
     setWriteId(journal.id);
     setDraft({ ...journal.content });
@@ -139,6 +153,11 @@ export default function StudentDashboard() {
     });
   }
   function closeWrite() {
+    // popstate 핸들러가 상태를 정리한다(엔트리도 함께 소비).
+    if (window.history.state?.wessEditor) {
+      window.history.back();
+      return;
+    }
     setWriteId(null);
     setSaveMsg(null);
     setEditorCfg(null);

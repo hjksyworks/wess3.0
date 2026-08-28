@@ -55,6 +55,15 @@ export default function SupervisorDashboard() {
   const detailIdx = reviewableJournals.findIndex((j) => j.id === detailId);
   const detail = detailIdx >= 0 ? reviewableJournals[detailIdx] : null;
 
+  // 상세 모달도 백버튼으로 앱을 벗어나지 않고 모달만 닫히도록 한다.
+  React.useEffect(() => {
+    if (detailId == null) return;
+    window.history.pushState({ wessDetail: true }, "");
+    const onPop = () => setDetailId(null);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [detailId]);
+
   function openDetail(journal: Journal) {
     setDetailId(journal.id);
     setFeedbackText(journal.feedbackContent ?? "");
