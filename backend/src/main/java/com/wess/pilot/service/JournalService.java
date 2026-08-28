@@ -290,7 +290,20 @@ public class JournalService {
         long beforeEpoch = journal.getUpdatedAt() != null ? journal.getUpdatedAt().getEpochSecond() : 0L;
         boolean beforeSaved = journal.isFileSaved();
         int cmdError = forceSave(documentKey);
-        log.info("[forcesave] journalId={} error={}", id, cmdError);
+        // error=4 = "마지막 저장 이후 변경 없음". 클라이언트가 편집분을 아직 DS로
+        // 보내지 못한 동기화 지연일 수 있어, 잠깐 기다렸다 몇 번 재시도한다.
+        int attempts = 0;
+        while (cmdError == 4 && attempts < 3) {
+            try {
+                Thread.sleep(1200L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            cmdError = forceSave(documentKey);
+            attempts++;
+        }
+        log.info("[forcesave] journalId={} error={} (retries={})", id, cmdError, attempts);
         if (cmdError != 0) {
             return; // 세션 없음/변경 없음 -> 현재 저장 상태 인정
         }

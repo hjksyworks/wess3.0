@@ -94,6 +94,8 @@ export function OnlyOfficeEditor({
           editorConfig: {
             mode,
             lang: "ko",
+            coEditing: { mode: "fast", change: true },
+            customization: { autosave: true, forcesave: true },
             ...(callbackUrl ? { callbackUrl } : {}),
           },
           height: "100%",

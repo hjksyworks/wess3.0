@@ -179,7 +179,16 @@ export default function StudentDashboard() {
         startDate: currentJournal.startDate,
         endDate: currentJournal.endDate,
       });
-      await api.post(`/journals/${jid}/forcesave`, { documentKey: editorDocKey });
+      const res = await api.post(`/journals/${jid}/forcesave`, { documentKey: editorDocKey });
+      const saved = res.data as Journal;
+      const hasContent =
+        saved.writtenDate != null ||
+        (saved.content != null && Object.values(saved.content).some((v) => v && v.trim().length > 0));
+      if (!hasContent) {
+        // 저장된 내용이 없음(편집기 미입력/미동기화) -> 편집기 유지하고 안내
+        setSaveMsg("저장할 내용이 없습니다. 내용을 입력한 뒤 다시 저장해 주세요.");
+        return;
+      }
       setWriteId(null);      // 대시보드로 복귀
       setEditorCfg(null);
       void refreshJournal(jid);  // 대시보드 상태값 갱신(작성중)
