@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { mockEnrollment, mockFeedbacks, buildMockJournals } from "@/lib/mockData";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Enrollment, Feedback, Journal, JournalStatus } from "@/types";
-import { CalendarDays, ChevronLeft, ChevronRight, MessageSquare, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, MessageSquare, Maximize2, Minimize2, X } from "lucide-react";
 
 const statusLabel: Record<JournalStatus, string> = {
   WRITING: "미작성",
@@ -61,6 +61,18 @@ export default function StudentDashboard() {
   const everDirty = React.useRef(false);
   const bypassGuard = React.useRef(false);   // 닫기 버튼에서 이미 확인받은 경우 재확인 skip
   const savedInSession = React.useRef(false); // 이번 편집 세션에서 저장 버튼을 눌렀는지
+  // 편집기 표시 방식: 기본은 페이지 안 인라인, 최대화 시 전체창
+  const [expanded, setExpanded] = React.useState<boolean>(() => {
+    try { return localStorage.getItem("wess_editor_expanded") === "1"; } catch { return false; }
+  });
+  function toggleExpanded() {
+    setExpanded((v) => {
+      const nv = !v;
+      try { localStorage.setItem("wess_editor_expanded", nv ? "1" : "0"); } catch { /* ignore */ }
+      return nv;
+    });
+  }
+  const panelRef = React.useRef<HTMLDivElement | null>(null);
   const [editorCfg, setEditorCfg] = React.useState<{
     documentUrl: string; documentKey: string; title: string; mode: "edit" | "view"; callbackUrl: string;
   } | null>(null);
@@ -170,6 +182,8 @@ export default function StudentDashboard() {
     everDirty.current = false;
     bypassGuard.current = false;
     savedInSession.current = false;
+    // 인라인 모드에서는 편집 영역이 화면 아래에 있을 수 있어 스크롤로 이동
+    window.setTimeout(() => panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
     setEditorCfg({
       documentUrl: journal.documentUrl ?? `${window.location.origin}${journal.fileUrl ?? `/api/journals/${journal.id}/file`}`,
       documentKey: journal.documentKey ?? `journal-${journal.id}-${journal.status}-${journal.submittedDate ?? journal.startDate ?? ""}`,
@@ -512,10 +526,15 @@ export default function StudentDashboard() {
             {cadence === "DAILY" ? renderDailyCalendar() : renderWeeklyTable()}
           </CardContent>
         </Card>
-      </main>
-
       {writeId !== null && currentJournal && enrollment && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+        <div
+          ref={panelRef}
+          className={
+            expanded
+              ? "fixed inset-0 z-50 bg-white flex flex-col"
+              : "rounded-lg border border-slate-200 bg-white shadow-sm flex flex-col overflow-hidden h-[78vh] min-h-[520px]"
+          }
+        >
           <div className="relative z-[60] bg-white flex items-center justify-between border-b border-slate-200 px-3 py-2 md:px-6 md:py-4 flex-shrink-0">
             <div className="flex items-center gap-2">
               <Badge className="bg-slate-100 text-slate-700">{user?.name ?? "학생"}</Badge>
@@ -534,6 +553,9 @@ export default function StudentDashboard() {
                 <span className="hidden sm:inline">다음</span><ChevronRight className="w-4 h-4" />
               </Button>
             </div>
+            <Button size="icon" variant="ghost" onClick={toggleExpanded} aria-label={expanded ? "작게 보기" : "전체창으로 보기"} title={expanded ? "작게 보기" : "전체창"}>
+              {expanded ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+            </Button>
             <Button size="icon" variant="ghost" onClick={closeWrite} aria-label="닫기"><X className="w-5 h-5" /></Button>
           </div>
 
@@ -606,6 +628,10 @@ export default function StudentDashboard() {
           </div>
         </div>
       )}
+
+      </main>
+
+
     </div>
   );
 }

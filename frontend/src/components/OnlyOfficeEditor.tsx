@@ -123,6 +123,8 @@ export function OnlyOfficeEditor({
             customization: {
               autosave: true,
               forcesave: true,
+              // 페이지 안에 끼워 넣을 때 로드 시 편집기로 스크롤 점프하는 것을 막는다
+              integrationMode: "embed",
               // 모바일 문서편집기는 기본이 보기모드(forceView=true)라 명시적으로 꺼야 편집 가능.
               mobile: { forceView: false },
             },
