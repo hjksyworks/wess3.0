@@ -74,16 +74,30 @@ public class PdfExportService {
                 : journalRepository.findByEnrollmentIdIn(enrollmentIds);
 
         List<Journal> targets = journals.stream()
-                .filter(j -> j.getStatus() == JournalStatus.SUBMITTED || j.getStatus() == JournalStatus.REVIEWED)
+                .filter(j -> j.getStatus() == JournalStatus.SUBMITTED
+                        || j.getStatus() == JournalStatus.REVIEWED
+                        || j.getStatus() == JournalStatus.MODIFIED)
                 .collect(Collectors.toList());
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              ZipOutputStream zos = new ZipOutputStream(baos)) {
 
+            java.util.Set<String> used = new java.util.HashSet<>();
             for (Journal journal : targets) {
                 byte[] pdf = exportSingle(journal.getId(), includeFeedback);
                 String studentName = journal.getEnrollment().getStudent().getName();
-                String entryName = studentName + "_" + journal.getWeek() + "주차_일지.pdf";
+                // 일별 일지는 한 주에 여러 개라 "주차"만으로는 파일명이 겹쳐 ZIP 생성이 실패한다.
+                // 일별은 작성일(entryDate), 주별은 주차를 식별자로 쓰고, 그래도 겹치면 번호를 붙인다.
+                String disc = journal.getEntryDate() != null
+                        ? journal.getEntryDate().toString()
+                        : (journal.getWeek() + "주차");
+                String base = studentName + "_" + disc + "_일지";
+                String entryName = base + ".pdf";
+                int dup = 1;
+                while (used.contains(entryName)) {
+                    entryName = base + "_" + (++dup) + ".pdf";
+                }
+                used.add(entryName);
 
                 zos.putNextEntry(new ZipEntry(entryName));
                 zos.write(pdf);
