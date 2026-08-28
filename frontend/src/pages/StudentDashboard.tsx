@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { mockEnrollment, mockFeedbacks, buildMockJournals } from "@/lib/mockData";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Enrollment, Feedback, Journal, JournalStatus } from "@/types";
-import { CalendarDays, ChevronLeft, ChevronRight, MessageSquare, Maximize2, Minimize2, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, MessageSquare, Maximize2, Minimize2, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 
 const statusLabel: Record<JournalStatus, string> = {
   WRITING: "미작성",
@@ -73,6 +73,17 @@ export default function StudentDashboard() {
     });
   }
   const panelRef = React.useRef<HTMLDivElement | null>(null);
+  // 우측 피드백 사이드바 접기/펼치기 (접으면 편집 영역이 넓어진다)
+  const [sidebarOpen, setSidebarOpen] = React.useState<boolean>(() => {
+    try { return localStorage.getItem("wess_sidebar_open") !== "0"; } catch { return true; }
+  });
+  function toggleSidebar() {
+    setSidebarOpen((v) => {
+      const nv = !v;
+      try { localStorage.setItem("wess_sidebar_open", nv ? "1" : "0"); } catch { /* ignore */ }
+      return nv;
+    });
+  }
   const [editorCfg, setEditorCfg] = React.useState<{
     documentUrl: string; documentKey: string; title: string; mode: "edit" | "view"; callbackUrl: string;
   } | null>(null);
@@ -553,6 +564,19 @@ export default function StudentDashboard() {
                 <span className="hidden sm:inline">다음</span><ChevronRight className="w-4 h-4" />
               </Button>
             </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="relative hidden md:inline-flex"
+              onClick={toggleSidebar}
+              aria-label={sidebarOpen ? "피드백 패널 접기" : "피드백 패널 펼치기"}
+              title={sidebarOpen ? "피드백 패널 접기" : "피드백 패널 펼치기"}
+            >
+              {sidebarOpen ? <PanelRightClose className="w-5 h-5" /> : <PanelRightOpen className="w-5 h-5" />}
+              {!sidebarOpen && (feedbackData || currentJournal.status === "CORRECTION_REQUESTED") && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />
+              )}
+            </Button>
             <Button size="icon" variant="ghost" onClick={toggleExpanded} aria-label={expanded ? "작게 보기" : "전체창으로 보기"} title={expanded ? "작게 보기" : "전체창"}>
               {expanded ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
             </Button>
@@ -563,7 +587,7 @@ export default function StudentDashboard() {
             <div className="flex-1 flex flex-col gap-2 md:gap-4 p-2 md:p-6 overflow-hidden">
               {/* 모바일: 사이드바가 숨겨지므로 정정 사유는 편집기 위에 표시 */}
               {currentJournal.status === "CORRECTION_REQUESTED" && currentJournal.correctionReason && (
-                <div className="md:hidden rounded-md bg-red-50 border border-red-200 p-2">
+                <div className={`${sidebarOpen ? "md:hidden" : ""} rounded-md bg-red-50 border border-red-200 p-2`}>
                   <p className="text-xs font-medium text-red-700">⚠ 교수 정정 요청</p>
                   <p className="text-xs text-red-800 whitespace-pre-wrap">{currentJournal.correctionReason}</p>
                 </div>
@@ -584,6 +608,7 @@ export default function StudentDashboard() {
               {!isEditable && <p className="text-xs text-slate-400">실습 마감일이 지나 수정할 수 없습니다.</p>}
             </div>
 
+            {sidebarOpen && (
             <div className="hidden md:block w-80 flex-shrink-0 border-l border-slate-200 p-6 overflow-y-auto space-y-3">
               {currentJournal.status === "CORRECTION_REQUESTED" && currentJournal.correctionReason && (
                 <div className="rounded-md bg-red-50 border border-red-200 p-3">
@@ -603,6 +628,7 @@ export default function StudentDashboard() {
                 </div>
               )}
             </div>
+            )}
           </div>
 
           <div className="relative z-[60] bg-white flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 px-3 py-2 md:px-6 md:py-4 flex-shrink-0">
