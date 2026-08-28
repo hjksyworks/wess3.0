@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { FormPreview } from "@/components/FormPreview";
 import { Card, CardContent } from "@/components/ui/card";
 import { OnlyOfficeEditor } from "@/components/OnlyOfficeEditor";
 import type { FormField, FormTemplate } from "@/types";
@@ -546,6 +547,10 @@ function TemplateEditPanel({
         <p className="text-xs text-slate-400">
           필드 1개 = 라벨셀🔴 + 입력셀🔵 자동 쌍 / 행-셀: "1-1","1-2" 같은 행번호끼리 같은 행에 배치 / 라벨너비%: 라벨셀🔴 비율 (나머지가 입력셀🔵) / 입력잠금☑: 입력셀🔵을 잠가 조회 전용으로 만듦
         </p>
+        <div className="space-y-1.5 pt-1">
+          <Label className="text-xs font-semibold">미리보기</Label>
+          <FormPreview title={name} fields={fields} />
+        </div>
       </div>
 
       {/* DOCX 관리 */}
@@ -1096,6 +1101,10 @@ function NewTemplateWizard({
                 <p className="text-xs text-slate-400">
                   필드 1개 = 라벨셀🔴 + 입력셀🔵 자동 쌍 / 라벨너비%: 라벨셀🔴 비율 (나머지가 입력셀🔵) / 입력잠금☑: 입력셀🔵을 잠가 조회 전용으로 만듦
                 </p>
+                <div className="space-y-1.5 pt-1">
+                  <Label className="text-xs font-semibold">미리보기</Label>
+                  <FormPreview title={name} fields={fields} />
+                </div>
               </div>
               )}
             </div>
