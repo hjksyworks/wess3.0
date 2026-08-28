@@ -155,7 +155,7 @@ export default function StudentDashboard() {
 
   async function refreshJournal(jid: number) {
     for (let i = 0; i < 8; i++) {
-      await new Promise((r) => setTimeout(r, 1200));
+      if (i > 0) await new Promise((r) => setTimeout(r, 1200));
       try {
         const res = await api.get(`/journals/${jid}`);
         const j = res.data as Journal;
@@ -180,8 +180,9 @@ export default function StudentDashboard() {
         endDate: currentJournal.endDate,
       });
       await api.post(`/journals/${jid}/forcesave`, { documentKey: editorDocKey });
-      setSaveMsg("임시저장되었습니다.");
-      void refreshJournal(jid);
+      setWriteId(null);      // 대시보드로 복귀
+      setEditorCfg(null);
+      void refreshJournal(jid);  // 대시보드 상태값 갱신(작성중)
     } catch (e) {
       setSaveMsg("저장 실패: " + extractError(e, "문서 저장을 확인하지 못했습니다. 다시 시도해 주세요."));
     } finally {
@@ -201,8 +202,9 @@ export default function StudentDashboard() {
         endDate: currentJournal.endDate,
       });
       await api.post(`/journals/${jid}/submit`, { documentKey: editorDocKey });
-      setWriteId(null);
-      pollSubmitted(jid);
+      setWriteId(null);      // 대시보드로 복귀
+      setEditorCfg(null);
+      pollSubmitted(jid);        // 대시보드 상태값 갱신(작성완료)
     } catch (e) {
       setSaveMsg("제출 실패: " + extractError(e, "문서 저장을 확인하지 못했습니다. 제출이 취소되었습니다."));
     } finally {
@@ -212,7 +214,7 @@ export default function StudentDashboard() {
 
   async function pollSubmitted(jid: number) {
     for (let i = 0; i < 18; i++) {
-      await new Promise((r) => setTimeout(r, 1500));
+      if (i > 0) await new Promise((r) => setTimeout(r, 1500));
       try {
         const res = await api.get(`/journals/${jid}`);
         const j = res.data as Journal;
