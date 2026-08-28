@@ -58,6 +58,13 @@ export default function StudentDashboard() {
     return new Date(t.getFullYear(), t.getMonth(), 1);
   });
   const monthInit = React.useRef(false);
+  const [weekStart, setWeekStart] = React.useState<number>(() => {
+    try { return localStorage.getItem("wess_week_start") === "1" ? 1 : 0; } catch { return 0; }
+  });
+  function changeWeekStart(v: number) {
+    setWeekStart(v);
+    try { localStorage.setItem("wess_week_start", String(v)); } catch { /* ignore */ }
+  }
 
   React.useEffect(() => {
     (async () => {
@@ -263,7 +270,7 @@ export default function StudentDashboard() {
     const m = calMonth.getMonth();
     const monthEnd = new Date(y, m + 1, 0);
     const gridStart = new Date(y, m, 1);
-    gridStart.setDate(1 - gridStart.getDay());
+    gridStart.setDate(1 - ((gridStart.getDay() - weekStart + 7) % 7));
     const today = ymd(new Date());
     const colStyle = { gridTemplateColumns: "repeat(7,1fr) 118px" } as React.CSSProperties;
 
@@ -280,7 +287,8 @@ export default function StudentDashboard() {
         const inMonth = cur.getMonth() === m;
         const j = inMonth ? dj.get(ds) ?? null : null;
         const isToday = ds === today;
-        const dcol = i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-slate-700";
+        const wd = cur.getDay();
+        const dcol = wd === 0 ? "text-red-500" : wd === 6 ? "text-blue-500" : "text-slate-700";
         if (j) {
           const k = kindOf(j);
           const st = kindStyle[k];
@@ -328,11 +336,19 @@ export default function StudentDashboard() {
             <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setCalMonth(new Date(y, m + 1, 1))} aria-label="다음 달"><ChevronRight className="w-4 h-4" /></Button>
             <Button size="sm" variant="outline" className="h-8 ml-1" onClick={() => { const t = new Date(); setCalMonth(new Date(t.getFullYear(), t.getMonth(), 1)); }}>오늘</Button>
           </div>
+          <div className="flex items-center gap-1 text-xs text-slate-500">
+            <span className="mr-1">주 시작</span>
+            <Button size="sm" variant={weekStart === 0 ? "default" : "outline"} className="h-7 px-2.5" onClick={() => changeWeekStart(0)}>일</Button>
+            <Button size="sm" variant={weekStart === 1 ? "default" : "outline"} className="h-7 px-2.5" onClick={() => changeWeekStart(1)}>월</Button>
+          </div>
         </div>
         <div className="grid gap-1.5 mb-1" style={colStyle}>
-          {dowLabels.map((d, i) => (
-            <div key={d} className={`text-center text-xs ${i === 0 ? "text-red-500" : i === 6 ? "text-blue-500" : "text-slate-500"}`}>{d}</div>
-          ))}
+          {Array.from({ length: 7 }, (_, i) => {
+            const wd = (weekStart + i) % 7;
+            return (
+              <div key={i} className={`text-center text-xs ${wd === 0 ? "text-red-500" : wd === 6 ? "text-blue-500" : "text-slate-500"}`}>{dowLabels[wd]}</div>
+            );
+          })}
           <div className="text-center text-xs text-slate-500 font-medium">주간 요약</div>
         </div>
         {rows}
