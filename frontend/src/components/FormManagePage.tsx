@@ -373,7 +373,7 @@ function TemplateEditPanel({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label className="text-xs font-semibold">필드 목록</Label>
-          <Button size="sm" variant="outline" onClick={addField} className="h-7 text-xs">
+          <Button size="sm" variant="outline" onClick={addField} className="h-8 text-xs">
             <Plus className="w-3 h-3" />
             필드 추가
           </Button>
@@ -387,8 +387,8 @@ function TemplateEditPanel({
                   <th className="px-1.5 py-1.5 w-12 text-center">순서</th>
                   <th className="px-2 py-1.5 w-5">#</th>
                   <th className="px-2 py-1.5">항목명</th>
-                  <th className="px-2 py-1.5 w-20">키 (key)</th>
-                  <th className="px-2 py-1.5 w-20">타입</th>
+                  <th className="px-2 py-1.5 w-32">키 (key)</th>
+                  <th className="px-2 py-1.5 w-24">타입</th>
                   <th className="px-2 py-1.5 w-20 text-center">행-셀</th>
                   <th className="px-2 py-1.5 w-16 text-center">전체너비(%)</th>
                   <th className="px-2 py-1.5 w-16 text-center">라벨너비(%)</th>
@@ -427,7 +427,7 @@ function TemplateEditPanel({
                         value={field.label}
                         onChange={(e) => updateField(idx, { label: e.target.value })}
                         placeholder="예: 오늘의 업무"
-                        className="h-7 text-xs"
+                        className="h-8 text-xs"
                       />
                     </td>
                     <td className="px-2 py-1.5">
@@ -435,14 +435,14 @@ function TemplateEditPanel({
                         value={field.key}
                         onChange={(e) => updateField(idx, { key: e.target.value })}
                         placeholder="예: tasks"
-                        className="h-7 text-xs font-mono"
+                        className="h-8 text-xs font-mono"
                       />
                     </td>
                     <td className="px-2 py-1.5">
                       <Select
                         value={field.type}
                         onChange={(e) => updateField(idx, { type: e.target.value as FieldType })}
-                        className="h-7 text-xs"
+                        className="h-8 text-xs"
                       >
                         {(Object.entries(TYPE_LABELS) as [FieldType, string][]).map(([v, l]) => (
                           <option key={v} value={v}>{l}</option>
@@ -454,7 +454,7 @@ function TemplateEditPanel({
                         value={field.rowGroup ?? ""}
                         onChange={(e) => updateField(idx, { rowGroup: e.target.value })}
                         placeholder="1-1"
-                        className="h-7 text-xs text-center font-mono"
+                        className="h-8 text-xs text-center font-mono"
                       />
                     </td>
                     <td className="px-2 py-1.5 text-center">
@@ -470,7 +470,7 @@ function TemplateEditPanel({
                           const n = Number(e.target.value);
                           updateField(idx, { width: Math.min(100, Math.max(10, !n ? 100 : n)) });
                         }}
-                        className="h-7 text-xs text-center w-full"
+                        className="h-8 text-xs text-center w-full"
                         placeholder="10~100"
                       />
                     </td>
@@ -487,7 +487,7 @@ function TemplateEditPanel({
                           const n = Number(e.target.value);
                           updateField(idx, { labelWidth: Math.min(99, Math.max(1, !n ? 30 : n)) });
                         }}
-                        className="h-7 text-xs text-center w-full"
+                        className="h-8 text-xs text-center w-full"
                         placeholder="1~99"
                         title="라벨셀🔴이 pair 너비에서 차지하는 % (나머지는 입력셀🔵)"
                       />
@@ -505,7 +505,7 @@ function TemplateEditPanel({
                           const n = Number(e.target.value);
                           updateField(idx, { height: Math.min(300, Math.max(20, !n ? 40 : n)) });
                         }}
-                        className="h-7 text-xs text-center w-full"
+                        className="h-8 text-xs text-center w-full"
                         placeholder="20~300"
                       />
                     </td>
@@ -568,7 +568,7 @@ function TemplateEditPanel({
             variant="outline"
             onClick={handleGenerateDocx}
             disabled={generating}
-            className="h-7 text-xs"
+            className="h-8 text-xs"
           >
             <RefreshCw className={`w-3 h-3 ${generating ? "animate-spin" : ""}`} />
             {generating ? "생성 중..." : "자동생성"}
@@ -578,7 +578,7 @@ function TemplateEditPanel({
             variant="outline"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="h-7 text-xs"
+            className="h-8 text-xs"
           >
             <Upload className="w-3 h-3" />
             {uploading ? "업로드 중..." : "파일 업로드"}
@@ -586,7 +586,7 @@ function TemplateEditPanel({
           <Button
             size="sm"
             onClick={handleOpenEditor}
-            className="h-7 text-xs"
+            className="h-8 text-xs"
           >
             <Edit2 className="w-3 h-3" />
             OnlyOffice 편집
@@ -603,14 +603,14 @@ function TemplateEditPanel({
 
       {/* 액션 버튼 */}
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
-        <Button size="sm" variant="outline" onClick={onClose} className="h-7 text-xs">
+        <Button size="sm" variant="outline" onClick={onClose} className="h-8 text-xs">
           닫기
         </Button>
         <Button
           size="sm"
           onClick={handleSave}
           disabled={saving || !dirty}
-          className="h-7 text-xs"
+          className="h-8 text-xs"
         >
           {saving ? "저장 중..." : "저장 → DB"}
         </Button>
@@ -933,7 +933,7 @@ function NewTemplateWizard({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-semibold">필드 목록</Label>
-                  <Button size="sm" variant="outline" onClick={addField} className="h-7 text-xs">
+                  <Button size="sm" variant="outline" onClick={addField} className="h-8 text-xs">
                     <Plus className="w-3 h-3" />
                     항목 추가
                   </Button>
@@ -944,9 +944,9 @@ function NewTemplateWizard({
                       <tr className="bg-slate-100 text-slate-500 text-left">
                         <th className="px-1.5 py-1.5 w-12 text-center">순서</th>
                         <th className="px-2 py-1.5">항목명</th>
-                        <th className="px-2 py-1.5 w-20">키 (key)</th>
-                        <th className="px-2 py-1.5 w-18">타입</th>
-                        <th className="px-2 py-1.5 w-18 text-center">행-셀</th>
+                        <th className="px-2 py-1.5 w-32">키 (key)</th>
+                        <th className="px-2 py-1.5 w-24">타입</th>
+                        <th className="px-2 py-1.5 w-20 text-center">행-셀</th>
                         <th className="px-2 py-1.5 w-16 text-center">전체너비(%)</th>
                         <th className="px-2 py-1.5 w-16 text-center">라벨너비(%)</th>
                         <th className="px-2 py-1.5 w-14 text-center">높이(pt)</th>
@@ -981,7 +981,7 @@ function NewTemplateWizard({
                               value={field.label}
                               onChange={(e) => updateField(idx, { label: e.target.value })}
                               placeholder="예: 오늘의 업무"
-                              className="h-7 text-xs"
+                              className="h-8 text-xs"
                             />
                           </td>
                           <td className="px-2 py-1.5">
@@ -989,7 +989,7 @@ function NewTemplateWizard({
                               value={field.key}
                               onChange={(e) => updateField(idx, { key: e.target.value })}
                               placeholder="tasks"
-                              className="h-7 text-xs font-mono"
+                              className="h-8 text-xs font-mono"
                             />
                           </td>
                           <td className="px-2 py-1.5">
@@ -998,7 +998,7 @@ function NewTemplateWizard({
                               onChange={(e) =>
                                 updateField(idx, { type: e.target.value as FieldType })
                               }
-                              className="h-7 text-xs"
+                              className="h-8 text-xs"
                             >
                               {(Object.entries(TYPE_LABELS) as [FieldType, string][]).map(
                                 ([v, l]) => (
@@ -1012,7 +1012,7 @@ function NewTemplateWizard({
                               value={field.rowGroup ?? ""}
                               onChange={(e) => updateField(idx, { rowGroup: e.target.value })}
                               placeholder="1-1"
-                              className="h-7 text-xs text-center font-mono"
+                              className="h-8 text-xs text-center font-mono"
                             />
                           </td>
                           <td className="px-2 py-1.5 text-center">
@@ -1028,7 +1028,7 @@ function NewTemplateWizard({
                                 const n = Number(e.target.value);
                                 updateField(idx, { width: Math.min(100, Math.max(10, !n ? 100 : n)) });
                               }}
-                              className="h-7 text-xs text-center w-full"
+                              className="h-8 text-xs text-center w-full"
                               placeholder="10~100"
                             />
                           </td>
@@ -1045,7 +1045,7 @@ function NewTemplateWizard({
                                 const n = Number(e.target.value);
                                 updateField(idx, { labelWidth: Math.min(99, Math.max(1, !n ? 30 : n)) });
                               }}
-                              className="h-7 text-xs text-center w-full"
+                              className="h-8 text-xs text-center w-full"
                               placeholder="1~99"
                               title="라벨셀🔴 비율 % (나머지는 입력셀🔵)"
                             />
@@ -1063,7 +1063,7 @@ function NewTemplateWizard({
                                 const n = Number(e.target.value);
                                 updateField(idx, { height: Math.min(300, Math.max(20, !n ? 40 : n)) });
                               }}
-                              className="h-7 text-xs text-center w-full"
+                              className="h-8 text-xs text-center w-full"
                               placeholder="20~300"
                             />
                           </td>

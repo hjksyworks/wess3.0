@@ -60,9 +60,14 @@ export function FormPreview({ title, fields }: { title: string; fields: FormFiel
   const valid = (fields ?? []).filter((f) => (f.label ?? "").trim() || (f.key ?? "").trim());
   const rows = React.useMemo(() => groupIntoRows(valid), [valid]);
 
+  // 실제 표 폭 = 9360 twips = 468pt = 6.5in → 96dpi 기준 624px.
+  // 세로(pt→px)는 1:1로 그리므로, 가로도 같은 배율로 고정해야 실제 문서와 비율이 맞는다.
+  const PAGE_W = 624;
+
   return (
-    <div className="rounded border border-slate-200 bg-white p-4">
-      {/* A4 문서 느낌의 미리보기 영역 */}
+    <div className="rounded border border-slate-200 bg-white p-4 overflow-x-auto">
+      {/* A4 본문 폭(6.5in) 기준으로 고정 — 실제 DOCX와 가로:세로 비율 일치 */}
+      <div className="mx-auto" style={{ width: PAGE_W }}>
       <p className="text-center text-sm font-bold mb-3">{title?.trim() || "(양식명)"}</p>
       {rows.length === 0 ? (
         <p className="text-center text-xs text-slate-400 py-6">항목을 추가하면 양식 모양이 여기에 표시됩니다.</p>
@@ -106,8 +111,9 @@ export function FormPreview({ title, fields }: { title: string; fields: FormFiel
         </table>
       )}
       <p className="mt-2 text-[11px] text-slate-400">
-        회색 = 라벨셀(편집 불가) · 흰색 = 학생 입력셀 · 실제 DOCX와 글꼴·여백은 다소 차이가 있을 수 있습니다.
+        회색 = 라벨셀(편집 불가) · 흰색 = 학생 입력셀 · A4 본문 폭(6.5in) 기준 실제 비율 · 글꼴·여백은 다소 차이가 있을 수 있습니다.
       </p>
+      </div>
     </div>
   );
 }
