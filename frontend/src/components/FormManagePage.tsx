@@ -652,7 +652,8 @@ function TemplateEditPanel({
 
 // ─── 2단계 등록 Wizard ──────────────────────────────────────────────────────
 
-type WizardStep = "info" | "docx";
+type WizardStep = "mode" | "info" | "docx";
+type TemplateMode = "columns" | "file";
 
 function NewTemplateWizard({
   nextId,
@@ -663,7 +664,8 @@ function NewTemplateWizard({
   onCreated: (t: FormTemplate) => void;
   onClose: () => void;
 }) {
-  const [step, setStep] = React.useState<WizardStep>("info");
+  const [step, setStep] = React.useState<WizardStep>("mode");
+  const [mode, setMode] = React.useState<TemplateMode>("columns");
   const [createdTemplate, setCreatedTemplate] = React.useState<FormTemplate | null>(null);
 
   // 1단계 폼 상태
@@ -706,7 +708,7 @@ function NewTemplateWizard({
       alert("양식명과 교과목을 입력해주세요.");
       return;
     }
-    if (fields.length === 0 || fields.some((f) => !f.key.trim() || !f.label.trim())) {
+    if (mode === "columns" && (fields.length === 0 || fields.some((f) => !f.key.trim() || !f.label.trim()))) {
       alert("모든 필드의 키와 항목명을 입력해주세요.");
       return;
     }
@@ -718,7 +720,7 @@ function NewTemplateWizard({
         semester,
         subject: subject.trim(),
         cadence,
-        fields,
+        fields: mode === "columns" ? fields : [],
       });
       setCreatedTemplate(res.data);
       setStep("docx");
@@ -730,7 +732,7 @@ function NewTemplateWizard({
         year,
         semester,
         subject: subject.trim(),
-        fields,
+        fields: mode === "columns" ? fields : [],
         createdDate: new Date().toISOString().slice(0, 10),
       };
       setCreatedTemplate(mock);
@@ -795,10 +797,12 @@ function NewTemplateWizard({
                 className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
                   step === "info"
                     ? "bg-blue-600 text-white"
-                    : "bg-green-500 text-white"
+                    : step === "docx"
+                    ? "bg-green-500 text-white"
+                    : "bg-slate-200 text-slate-400"
                 }`}
               >
-                {step === "info" ? "1" : "✓"}
+                {step === "docx" ? "✓" : "1"}
               </span>
               <span className={step === "info" ? "text-blue-600 font-medium" : "text-slate-400"}>
                 정보 입력
@@ -823,6 +827,44 @@ function NewTemplateWizard({
 
         {/* 본문 */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
+          {step === "mode" && (
+            <div className="space-y-4 py-2">
+              <p className="text-sm text-slate-600">등록할 양식의 형식을 선택하세요.</p>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => { setMode("columns"); setStep("info"); }}
+                  className="flex flex-col items-start gap-3 p-6 rounded-lg border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 transition-all text-left"
+                >
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Plus className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm text-slate-700">📊 컬럼(필드) 형식</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      항목(컬럼)들을 정의하면 표 형식 DOCX 양식을 자동으로 만들어 줍니다.
+                      학생이 각 항목을 채우고, 지정한 항목은 DB에도 저장됩니다.
+                    </p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => { setMode("file"); setStep("info"); }}
+                  className="flex flex-col items-start gap-3 p-6 rounded-lg border-2 border-slate-200 hover:border-green-400 hover:bg-green-50/40 transition-all text-left"
+                >
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <Upload className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm text-slate-700">📁 템플릿 파일 형식</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      직접 만든 DOCX 양식 파일을 업로드해 그대로 사용합니다.
+                      필드(컬럼) 정의 없이 자유 서식으로 작성합니다.
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
           {step === "info" && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -877,7 +919,12 @@ function NewTemplateWizard({
                 </div>
               </div>
 
-              {/* 필드 목록 */}
+              {mode === "file" && (
+                <div className="rounded-lg border border-green-200 bg-green-50/50 p-4 text-sm text-slate-600">
+                  📁 <b>템플릿 파일 형식</b> — 다음 단계에서 직접 만든 DOCX 양식 파일을 업로드합니다. 필드(컬럼) 정의는 필요하지 않습니다.
+                </div>
+              )}
+              {mode === "columns" && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-semibold">필드 목록</Label>
@@ -1050,16 +1097,19 @@ function NewTemplateWizard({
                   필드 1개 = 라벨셀🔴 + 입력셀🔵 자동 쌍 / 라벨너비%: 라벨셀🔴 비율 (나머지가 입력셀🔵) / 입력잠금☑: 입력셀🔵을 잠가 조회 전용으로 만듦
                 </p>
               </div>
+              )}
             </div>
           )}
 
           {step === "docx" && (
             <div className="space-y-6 py-2">
               <p className="text-sm text-slate-600">
-                양식이 등록되었습니다. DOCX 양식 파일을 준비해주세요.
+                {mode === "columns"
+                  ? "양식이 등록되었습니다. 필드 기반으로 DOCX를 자동 생성하거나 직접 업로드하세요."
+                  : "양식이 등록되었습니다. 사용할 DOCX 양식 파일을 업로드해주세요."}
               </p>
-              <div className="grid grid-cols-2 gap-4">
-                {/* 자동생성 카드 */}
+              <div className={`grid ${mode === "columns" ? "grid-cols-2" : "grid-cols-1"} gap-4`}>
+                {mode === "columns" && (
                 <button
                   onClick={handleAutoGenerate}
                   disabled={generating}
@@ -1078,6 +1128,7 @@ function NewTemplateWizard({
                     </p>
                   </div>
                 </button>
+                )}
 
                 {/* 파일 업로드 카드 */}
                 <button
