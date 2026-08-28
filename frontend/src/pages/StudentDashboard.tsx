@@ -30,7 +30,8 @@ const kindStyle: Record<Kind, { bg: string; fg: string; label: string }> = {
 function kindOf(j: Journal): Kind {
   if (j.status === "CORRECTION_REQUESTED") return "corr";
   if (j.status === "SUBMITTED" || j.status === "REVIEWED" || j.status === "MODIFIED") return "sub";
-  if (Object.values(j.content ?? {}).some((v) => v && v.trim().length > 0)) return "draft";
+  const hasContent = Object.values(j.content ?? {}).some((v) => v && v.trim().length > 0);
+  if (j.writtenDate || hasContent) return "draft";
   return "none";
 }
 
@@ -53,6 +54,10 @@ export default function StudentDashboard() {
   const [draft, setDraft] = React.useState<Record<string, string>>({});
   const [saving, setSaving] = React.useState(false);
   const [saveMsg, setSaveMsg] = React.useState<string | null>(null);
+  // 편집 세션 동안 OnlyOffice 설정을 고정(열 때 스냅샷). 저장 후 목록 갱신이 편집기를 리로드시키지 않도록.
+  const [editorCfg, setEditorCfg] = React.useState<{
+    documentUrl: string; documentKey: string; title: string; mode: "edit" | "view"; callbackUrl: string;
+  } | null>(null);
   const [calMonth, setCalMonth] = React.useState<Date>(() => {
     const t = new Date();
     return new Date(t.getFullYear(), t.getMonth(), 1);
@@ -98,11 +103,10 @@ export default function StudentDashboard() {
   }, []);
 
   const cadence = journals.find((j) => j.cadence)?.cadence ?? "WEEKLY";
-  const doneCount = journals.filter(
-    (j) => j.status === "SUBMITTED" || j.status === "REVIEWED" || j.status === "MODIFIED",
-  ).length;
-  const notCount = journals.filter((j) => j.status === "WRITING").length;
-  const corrCount = journals.filter((j) => j.status === "CORRECTION_REQUESTED").length;
+  const doneCount = journals.filter((j) => kindOf(j) === "sub").length;
+  const draftCount = journals.filter((j) => kindOf(j) === "draft").length;
+  const notCount = journals.filter((j) => kindOf(j) === "none").length;
+  const corrCount = journals.filter((j) => kindOf(j) === "corr").length;
 
   const sortedJournals = [...journals].sort((a, b) => {
     if (a.entryDate && b.entryDate) return a.entryDate.localeCompare(b.entryDate);
@@ -126,36 +130,58 @@ export default function StudentDashboard() {
     setWriteId(journal.id);
     setDraft({ ...journal.content });
     setSaveMsg(null);
+    setEditorCfg({
+      documentUrl: journal.documentUrl ?? `${window.location.origin}${journal.fileUrl ?? `/api/journals/${journal.id}/file`}`,
+      documentKey: journal.documentKey ?? `journal-${journal.id}-${journal.status}-${journal.submittedDate ?? journal.startDate ?? ""}`,
+      title: journal.fileName ?? `${journal.week}주차_일지.docx`,
+      mode: pastDeadline ? "view" : "edit",
+      callbackUrl: journal.callbackUrl ?? `${window.location.origin}/api/journals/${journal.id}/callback`,
+    });
   }
   function closeWrite() {
     setWriteId(null);
     setSaveMsg(null);
+    setEditorCfg(null);
   }
 
   const currentJournal = journals.find((j) => j.id === writeId) ?? null;
   const isEditable = currentJournal != null && !pastDeadline;
-  const editorDocKey = currentJournal
-    ? currentJournal.documentKey ??
-      `journal-${currentJournal.id}-${currentJournal.status}-${currentJournal.submittedDate ?? currentJournal.startDate ?? ""}`
-    : "";
+  const editorDocKey = editorCfg?.documentKey ?? "";
 
   function extractError(e: unknown, fallback: string): string {
     const err = e as { response?: { data?: { message?: string } } };
     return err?.response?.data?.message ?? fallback;
   }
 
+  async function refreshJournal(jid: number) {
+    for (let i = 0; i < 8; i++) {
+      await new Promise((r) => setTimeout(r, 1200));
+      try {
+        const res = await api.get(`/journals/${jid}`);
+        const j = res.data as Journal;
+        setJournals((prev) => prev.map((x) => (x.id === jid ? { ...x, ...j } : x)));
+        const hasContent = j.content && Object.values(j.content).some((v) => v && v.trim().length > 0);
+        if (j.writtenDate || hasContent || j.status !== "WRITING") return;
+      } catch {
+        /* retry */
+      }
+    }
+  }
+
   async function saveDraft() {
     if (!currentJournal) return;
+    const jid = currentJournal.id;
     setSaving(true);
     setSaveMsg(null);
     try {
-      await api.put(`/journals/${currentJournal.id}`, {
+      await api.put(`/journals/${jid}`, {
         content: draft,
         startDate: currentJournal.startDate,
         endDate: currentJournal.endDate,
       });
-      await api.post(`/journals/${currentJournal.id}/forcesave`, { documentKey: editorDocKey });
+      await api.post(`/journals/${jid}/forcesave`, { documentKey: editorDocKey });
       setSaveMsg("임시저장되었습니다.");
+      void refreshJournal(jid);
     } catch (e) {
       setSaveMsg("저장 실패: " + extractError(e, "문서 저장을 확인하지 못했습니다. 다시 시도해 주세요."));
     } finally {
@@ -216,8 +242,8 @@ export default function StudentDashboard() {
 
   function actionLabel(j: Journal) {
     if (pastDeadline) return "보기";
-    if (j.status === "WRITING") return "작성하기";
     if (j.status === "CORRECTION_REQUESTED") return "정정하기";
+    if (j.status === "WRITING") return kindOf(j) === "draft" ? "이어쓰기" : "작성하기";
     return "수정";
   }
 
@@ -375,6 +401,9 @@ export default function StudentDashboard() {
                 <span className="text-slate-500">지도교수 <b className="text-slate-800 font-medium">{enrollment.supervisorName ?? "-"}</b></span>
                 <span className="ml-auto flex gap-2">
                   <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">작성완료 {doneCount}</span>
+                  {draftCount > 0 && (
+                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">작성중 {draftCount}</span>
+                  )}
                   <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">미작성 {notCount}</span>
                   {corrCount > 0 && (
                     <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-700">⚠ 정정요청 {corrCount}</span>
@@ -407,7 +436,7 @@ export default function StudentDashboard() {
             <div className="flex items-center gap-2">
               <Badge className="bg-slate-100 text-slate-700">{user?.name ?? "학생"}</Badge>
               <Badge className={`${kindStyle[kindOf(currentJournal)].bg} ${kindStyle[kindOf(currentJournal)].fg}`}>
-                {statusLabel[currentJournal.status]}
+                {kindStyle[kindOf(currentJournal)].label}
               </Badge>
             </div>
             <div className="flex items-center gap-3">
@@ -427,14 +456,16 @@ export default function StudentDashboard() {
           <div className="flex-1 flex overflow-hidden">
             <div className="flex-1 flex flex-col gap-4 p-6 overflow-hidden">
               <div className="flex-1 min-h-[400px] rounded-md border border-slate-200 overflow-hidden">
-                <OnlyOfficeEditor
-                  documentUrl={currentJournal.documentUrl ?? `${window.location.origin}${currentJournal.fileUrl ?? `/api/journals/${currentJournal.id}/file`}`}
-                  documentKey={editorDocKey}
-                  title={currentJournal.fileName ?? `${currentJournal.week}주차_일지.docx`}
-                  mode={isEditable ? "edit" : "view"}
-                  callbackUrl={currentJournal.callbackUrl ?? `${window.location.origin}/api/journals/${currentJournal.id}/callback`}
-                  className="h-full w-full"
-                />
+                {editorCfg && (
+                  <OnlyOfficeEditor
+                    documentUrl={editorCfg.documentUrl}
+                    documentKey={editorCfg.documentKey}
+                    title={editorCfg.title}
+                    mode={editorCfg.mode}
+                    callbackUrl={editorCfg.callbackUrl}
+                    className="h-full w-full"
+                  />
+                )}
               </div>
               {!isEditable && <p className="text-xs text-slate-400">실습 마감일이 지나 수정할 수 없습니다.</p>}
             </div>
