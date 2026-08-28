@@ -154,14 +154,18 @@ export default function StudentDashboard() {
   }
 
   async function refreshJournal(jid: number) {
+    const before = journals.find((x) => x.id === jid);
+    const initStatus = before?.status;
+    const hadWritten = before?.writtenDate != null;
     for (let i = 0; i < 8; i++) {
       if (i > 0) await new Promise((r) => setTimeout(r, 1200));
       try {
         const res = await api.get(`/journals/${jid}`);
         const j = res.data as Journal;
         setJournals((prev) => prev.map((x) => (x.id === jid ? { ...x, ...j } : x)));
-        const hasContent = j.content && Object.values(j.content).some((v) => v && v.trim().length > 0);
-        if (j.writtenDate || hasContent || j.status !== "WRITING") return;
+        // 초기 상태와 달라졌거나(정정요청->작성완료 등) writtenDate가 새로 붙으면 반영 완료
+        const gotWritten = j.writtenDate != null && !hadWritten;
+        if (j.status !== initStatus || gotWritten) return;
       } catch {
         /* retry */
       }
@@ -227,7 +231,10 @@ export default function StudentDashboard() {
       try {
         const res = await api.get(`/journals/${jid}`);
         const j = res.data as Journal;
-        if (j.status !== "WRITING") {
+        // 제출 목표 상태(작성완료=SUBMITTED / 검토본 수정=MODIFIED)에 도달할 때까지 폴링.
+        // 정정요청(CORRECTION_REQUESTED)에서 재제출하는 경우 초기 상태가 WRITING이 아니므로
+        // "!= WRITING" 로 판단하면 옛 상태로 즉시 종료돼 화면이 갱신되지 않는다.
+        if (j.status === "SUBMITTED" || j.status === "MODIFIED") {
           setJournals((prev) => prev.map((x) => (x.id === jid ? { ...x, ...j } : x)));
           return;
         }
