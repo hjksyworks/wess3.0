@@ -12,9 +12,9 @@ import { CalendarDays, ChevronLeft, ChevronRight, MessageSquare, X } from "lucid
 
 const statusLabel: Record<JournalStatus, string> = {
   WRITING: "미작성",
-  SUBMITTED: "제출완료",
-  REVIEWED: "제출완료",
-  MODIFIED: "제출완료",
+  SUBMITTED: "작성완료",
+  REVIEWED: "작성완료",
+  MODIFIED: "작성완료",
   CORRECTION_REQUESTED: "정정요청",
 };
 
@@ -22,7 +22,7 @@ type Kind = "none" | "draft" | "sub" | "rev" | "mod" | "corr";
 const kindStyle: Record<Kind, { bg: string; fg: string; label: string }> = {
   none: { bg: "bg-slate-50", fg: "text-slate-400", label: "미작성" },
   draft: { bg: "bg-amber-50", fg: "text-amber-700", label: "작성중" },
-  sub: { bg: "bg-blue-50", fg: "text-blue-700", label: "제출완료" },
+  sub: { bg: "bg-blue-50", fg: "text-blue-700", label: "작성완료" },
   rev: { bg: "bg-green-50", fg: "text-green-700", label: "검토완료" },
   mod: { bg: "bg-purple-50", fg: "text-purple-700", label: "수정저장" },
   corr: { bg: "bg-red-50", fg: "text-red-700", label: "정정요청" },
@@ -421,7 +421,7 @@ export default function StudentDashboard() {
               <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                 <span><span className="inline-block w-2 h-2 rounded-full bg-slate-300 align-middle mr-1" />미작성</span>
                 <span><span className="inline-block w-2 h-2 rounded-full bg-amber-400 align-middle mr-1" />작성중</span>
-                <span><span className="inline-block w-2 h-2 rounded-full bg-blue-400 align-middle mr-1" />제출완료</span>
+                <span><span className="inline-block w-2 h-2 rounded-full bg-blue-400 align-middle mr-1" />작성완료</span>
                 <span><span className="inline-block w-2 h-2 rounded-full bg-red-500 align-middle mr-1" />정정요청</span>
               </div>
             </div>

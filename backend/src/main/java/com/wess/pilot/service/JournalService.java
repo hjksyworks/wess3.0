@@ -265,6 +265,13 @@ public class JournalService {
         journalRepository.save(journal);
         int cmdError = forceSave(documentKey);
         log.info("[submit] journalId={} forcesave error={} (0=세션활성, 콜백이 저장+확정)", id, cmdError);
+        if (cmdError != 0) {
+            // 활성 세션/변경분이 없어 저장 콜백이 오지 않는다 -> 즉시 확정(파일은 이미 저장됨).
+            // 그대로 두면 프론트 폴백(pollSubmitted->finalize-submit)의 ~27초 뒤에야 전이돼
+            // 저장을 눌러도 한동안 '작성중'으로 보이는 문제가 생긴다.
+            finalizeSubmit(id);
+            log.info("[submit] journalId={} 저장 콜백 없음 -> 즉시 확정", id);
+        }
     }
 
     /** 임시저장: 강제저장으로 편집기 내용을 확정 저장. 상태는 WRITING 유지. */
