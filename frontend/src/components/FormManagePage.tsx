@@ -791,8 +791,9 @@ function NewTemplateWizard({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-h-[90vh] flex flex-col" style={{ maxWidth: "1700px" }}>
+    /* 항목을 추가해도 창이 위아래로 퍼지지 않도록 상단 고정(아래로만 늘어남) */
+    <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/40 p-6">
+      <div className="bg-white rounded-lg shadow-xl w-full max-h-[calc(100vh-3rem)] flex flex-col" style={{ maxWidth: "1700px" }}>
         {/* 헤더 */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
           <div className="flex items-center gap-3">
