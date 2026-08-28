@@ -680,7 +680,7 @@ function NewTemplateWizard({
   const [subject, setSubject] = React.useState("");
   const [cadence, setCadence] = React.useState<"WEEKLY" | "DAILY">("WEEKLY");
   const [fields, setFields] = React.useState<FormField[]>([
-    { key: "tasks", label: "주요 수행 업무", type: "textarea", saveToDb: true, readOnly: false, width: 100, labelWidth: 30, height: 80 },
+    { key: "tasks", label: "주요 수행 업무", type: "textarea", saveToDb: true, readOnly: false, width: 100, labelWidth: 30, height: 40 },
   ]);
   const [submitting, setSubmitting] = React.useState(false);
 
