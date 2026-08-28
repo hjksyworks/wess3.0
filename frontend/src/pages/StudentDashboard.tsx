@@ -55,6 +55,12 @@ export default function StudentDashboard() {
   const [saving, setSaving] = React.useState(false);
   const [saveMsg, setSaveMsg] = React.useState<string | null>(null);
   // 편집 세션 동안 OnlyOffice 설정을 고정(열 때 스냅샷). 저장 후 목록 갱신이 편집기를 리로드시키지 않도록.
+  // 편집기 미저장 여부(onDocumentStateChange). everDirty=이번 세션에서 한 번이라도 입력했는지
+  const [dirty, setDirty] = React.useState(false);
+  const dirtyRef = React.useRef(false);      // popstate 핸들러에서 최신값 읽기용
+  const everDirty = React.useRef(false);
+  const bypassGuard = React.useRef(false);   // 닫기 버튼에서 이미 확인받은 경우 재확인 skip
+  const savedInSession = React.useRef(false); // 이번 편집 세션에서 저장 버튼을 눌렀는지
   const [editorCfg, setEditorCfg] = React.useState<{
     documentUrl: string; documentKey: string; title: string; mode: "edit" | "view"; callbackUrl: string;
   } | null>(null);
@@ -132,9 +138,24 @@ export default function StudentDashboard() {
     if (writeId == null) return;
     window.history.pushState({ wessEditor: true }, "");
     const onPop = () => {
+      if (bypassGuard.current) {
+        bypassGuard.current = false;
+        setWriteId(null); setEditorCfg(null); setSaveMsg(null); setDirty(false); dirtyRef.current = false;
+        return;
+      }
+      if (everDirty.current && !savedInSession.current) {
+        const ok = window.confirm("작성한 내용을 저장하지 않았습니다. 저장하지 않고 나가시겠습니까?");
+        if (!ok) {
+          // 편집기를 유지하기 위해 엔트리를 다시 쌓는다
+          window.history.pushState({ wessEditor: true }, "");
+          return;
+        }
+      }
       setWriteId(null);
       setEditorCfg(null);
       setSaveMsg(null);
+      setDirty(false);
+      dirtyRef.current = false;
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -144,6 +165,11 @@ export default function StudentDashboard() {
     setWriteId(journal.id);
     setDraft({ ...journal.content });
     setSaveMsg(null);
+    setDirty(false);
+    dirtyRef.current = false;
+    everDirty.current = false;
+    bypassGuard.current = false;
+    savedInSession.current = false;
     setEditorCfg({
       documentUrl: journal.documentUrl ?? `${window.location.origin}${journal.fileUrl ?? `/api/journals/${journal.id}/file`}`,
       documentKey: journal.documentKey ?? `journal-${journal.id}-${journal.status}-${journal.submittedDate ?? journal.startDate ?? ""}`,
@@ -153,6 +179,10 @@ export default function StudentDashboard() {
     });
   }
   function closeWrite() {
+    if (everDirty.current && !savedInSession.current) {
+      if (!window.confirm("작성한 내용을 저장하지 않았습니다. 저장하지 않고 나가시겠습니까?")) return;
+      bypassGuard.current = true;   // popstate 에서 재확인하지 않도록
+    }
     // popstate 핸들러가 상태를 정리한다(엔트리도 함께 소비).
     if (window.history.state?.wessEditor) {
       window.history.back();
@@ -193,6 +223,15 @@ export default function StudentDashboard() {
 
   async function saveDraft() {
     if (!currentJournal) return;
+    // 편집기에서 한 번도 변경하지 않았으면 서버 왕복(forcesave error=4) 없이 즉시 안내
+    if (!everDirty.current) {
+      setSaveMsg(
+        currentJournal.writtenDate
+          ? "변경된 내용이 없습니다."
+          : "입력된 내용이 없습니다. 내용을 작성한 뒤 저장해 주세요.",
+      );
+      return;
+    }
     const jid = currentJournal.id;
     setSaving(true);
     setSaveMsg(null);
@@ -212,6 +251,8 @@ export default function StudentDashboard() {
         setSaveMsg("저장할 내용이 없습니다. 내용을 입력한 뒤 다시 저장해 주세요.");
         return;
       }
+      savedInSession.current = true;
+      setDirty(false); dirtyRef.current = false; bypassGuard.current = true;
       setWriteId(null);      // 대시보드로 복귀
       setEditorCfg(null);
       void refreshJournal(jid);  // 대시보드 상태값 갱신(작성중)
@@ -224,6 +265,10 @@ export default function StudentDashboard() {
 
   async function submitFinal() {
     if (!currentJournal) return;
+    if (!everDirty.current && !currentJournal.writtenDate) {
+      setSaveMsg("입력된 내용이 없습니다. 내용을 작성한 뒤 저장해 주세요.");
+      return;
+    }
     const jid = currentJournal.id;
     setSaving(true);
     setSaveMsg(null);
@@ -234,6 +279,8 @@ export default function StudentDashboard() {
         endDate: currentJournal.endDate,
       });
       await api.post(`/journals/${jid}/submit`, { documentKey: editorDocKey });
+      savedInSession.current = true;
+      setDirty(false); dirtyRef.current = false; bypassGuard.current = true;
       setWriteId(null);      // 대시보드로 복귀
       setEditorCfg(null);
       pollSubmitted(jid);        // 대시보드 상태값 갱신(작성완료)
@@ -469,7 +516,7 @@ export default function StudentDashboard() {
 
       {writeId !== null && currentJournal && enrollment && (
         <div className="fixed inset-0 z-50 bg-white flex flex-col">
-          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 flex-shrink-0">
+          <div className="relative z-[60] bg-white flex items-center justify-between border-b border-slate-200 px-3 py-2 md:px-6 md:py-4 flex-shrink-0">
             <div className="flex items-center gap-2">
               <Badge className="bg-slate-100 text-slate-700">{user?.name ?? "학생"}</Badge>
               <Badge className={`${kindStyle[kindOf(currentJournal)].bg} ${kindStyle[kindOf(currentJournal)].fg}`}>
@@ -478,23 +525,31 @@ export default function StudentDashboard() {
             </div>
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="sm" className="gap-1" disabled={currentIdx <= 0} onClick={() => navigate(-1)}>
-                <ChevronLeft className="w-4 h-4" />이전
+                <ChevronLeft className="w-4 h-4" /><span className="hidden sm:inline">이전</span>
               </Button>
               <h2 className="text-lg font-bold whitespace-nowrap">
                 {currentJournal.entryDate ?? `${currentJournal.week}주차`} 일지
               </h2>
               <Button variant="ghost" size="sm" className="gap-1" disabled={currentIdx < 0 || currentIdx >= sortedJournals.length - 1} onClick={() => navigate(1)}>
-                다음<ChevronRight className="w-4 h-4" />
+                <span className="hidden sm:inline">다음</span><ChevronRight className="w-4 h-4" />
               </Button>
             </div>
             <Button size="icon" variant="ghost" onClick={closeWrite} aria-label="닫기"><X className="w-5 h-5" /></Button>
           </div>
 
-          <div className="flex-1 flex overflow-hidden">
-            <div className="flex-1 flex flex-col gap-4 p-6 overflow-hidden">
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <div className="flex-1 flex flex-col gap-2 md:gap-4 p-2 md:p-6 overflow-hidden">
+              {/* 모바일: 사이드바가 숨겨지므로 정정 사유는 편집기 위에 표시 */}
+              {currentJournal.status === "CORRECTION_REQUESTED" && currentJournal.correctionReason && (
+                <div className="md:hidden rounded-md bg-red-50 border border-red-200 p-2">
+                  <p className="text-xs font-medium text-red-700">⚠ 교수 정정 요청</p>
+                  <p className="text-xs text-red-800 whitespace-pre-wrap">{currentJournal.correctionReason}</p>
+                </div>
+              )}
               <div className="flex-1 min-h-[400px] rounded-md border border-slate-200 overflow-hidden">
                 {editorCfg && (
                   <OnlyOfficeEditor
+                    onDirtyChange={(d) => { setDirty(d); dirtyRef.current = d; if (d) everDirty.current = true; }}
                     documentUrl={editorCfg.documentUrl}
                     documentKey={editorCfg.documentKey}
                     title={editorCfg.title}
@@ -507,7 +562,7 @@ export default function StudentDashboard() {
               {!isEditable && <p className="text-xs text-slate-400">실습 마감일이 지나 수정할 수 없습니다.</p>}
             </div>
 
-            <div className="w-80 flex-shrink-0 border-l border-slate-200 p-6 overflow-y-auto space-y-3">
+            <div className="hidden md:block w-80 flex-shrink-0 border-l border-slate-200 p-6 overflow-y-auto space-y-3">
               {currentJournal.status === "CORRECTION_REQUESTED" && currentJournal.correctionReason && (
                 <div className="rounded-md bg-red-50 border border-red-200 p-3">
                   <p className="text-xs font-medium text-red-700 mb-1">⚠ 교수 정정 요청</p>
@@ -528,7 +583,7 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4 flex-shrink-0">
+          <div className="relative z-[60] bg-white flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 px-3 py-2 md:px-6 md:py-4 flex-shrink-0">
             {saveMsg && (
               <span className={`mr-auto text-sm ${saveMsg.includes("실패") ? "text-red-500" : "text-green-600"}`}>{saveMsg}</span>
             )}

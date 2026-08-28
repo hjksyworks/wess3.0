@@ -23,6 +23,12 @@ export interface OnlyOfficeEditorProps {
   mode?: "edit" | "view";
   callbackUrl?: string;
   className?: string;
+  /** 편집 중 미저장 여부. true=사용자가 편집 중(미저장), false=문서서버로 전송됨 */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** 문서 로딩 완료 */
+  onReady?: () => void;
+  /** 모바일 최적화 편집기 사용(기본: 화면폭으로 자동 판정) */
+  mobile?: boolean;
 }
 
 const DOCS_API_SCRIPT_ID = "onlyoffice-docsapi-script";
@@ -66,6 +72,9 @@ let placeholderSeq = 0;
 export function OnlyOfficeEditor({
   documentUrl,
   documentKey,
+  onDirtyChange,
+  onReady,
+  mobile,
   title = "document.docx",
   fileType = "docx",
   mode = "view",
@@ -74,6 +83,11 @@ export function OnlyOfficeEditor({
 }: OnlyOfficeEditorProps) {
   const placeholderId = React.useRef(`onlyoffice-editor-${++placeholderSeq}`);
   const editorRef = React.useRef<{ destroyEditor: () => void } | null>(null);
+  // 콜백은 ref로 유지: config에 인라인 함수를 직접 넣으면 부모 리렌더 때
+  // 편집기가 재생성(destroyEditor)될 위험이 있다.
+  const dirtyCb = React.useRef(onDirtyChange);
+  const readyCb = React.useRef(onReady);
+  React.useEffect(() => { dirtyCb.current = onDirtyChange; readyCb.current = onReady; });
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -83,6 +97,12 @@ export function OnlyOfficeEditor({
     loadDocsApiScript()
       .then(() => {
         if (cancelled || !window.DocsAPI) return;
+        const isMobile =
+          mobile ??
+          (typeof window !== "undefined" &&
+            (window.matchMedia("(max-width: 767px)").matches ||
+              /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)));
+
         editorRef.current = new window.DocsAPI.DocEditor(placeholderId.current, {
           document: {
             fileType,
@@ -91,12 +111,27 @@ export function OnlyOfficeEditor({
             url: documentUrl,
           },
           documentType: "word",
+          // type 은 editorConfig 가 아니라 최상위 파라미터다(desktop|mobile|embedded).
+          // 주의: OnlyOffice Community Edition 은 모바일 편집기가 "보기 전용"이다
+          // (편집하려면 유료 라이선스 필요). 따라서 편집이 필요한 경우에는 모바일에서도
+          // desktop 번들을 사용하고, 조회(마감 후 등)에서만 모바일 번들을 쓴다.
+          type: isMobile && mode === "view" ? "mobile" : "desktop",
           editorConfig: {
             mode,
             lang: "ko",
             coEditing: { mode: "fast", change: true },
-            customization: { autosave: true, forcesave: true },
+            customization: {
+              autosave: true,
+              forcesave: true,
+              // 모바일 문서편집기는 기본이 보기모드(forceView=true)라 명시적으로 꺼야 편집 가능.
+              mobile: { forceView: false },
+            },
             ...(callbackUrl ? { callbackUrl } : {}),
+          },
+          events: {
+            // event.data: true=사용자가 편집 중(미저장), false=문서서버로 변경분 전송됨
+            onDocumentStateChange: (e: { data?: boolean }) => dirtyCb.current?.(!!e?.data),
+            onDocumentReady: () => readyCb.current?.(),
           },
           height: "100%",
           width: "100%",
