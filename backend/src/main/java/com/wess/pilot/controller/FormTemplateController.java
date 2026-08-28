@@ -65,7 +65,7 @@ public class FormTemplateController {
     }
 
     /** docx 파일 직접 업로드 */
-    @PostMapping("/{id}/file")
+    @PostMapping("/{id}/upload")
     public FormTemplateDto uploadFile(@PathVariable Long id,
                                       @RequestParam("file") MultipartFile file) throws IOException {
         return formTemplateService.uploadTemplateFile(id, file);

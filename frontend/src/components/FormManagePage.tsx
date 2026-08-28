@@ -291,7 +291,7 @@ function TemplateEditPanel({
       const formData = new FormData();
       formData.append("file", file);
       const res = await api.post<FormTemplate>(
-        `/form-templates/${template.id}/file`,
+        `/form-templates/${template.id}/upload`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } },
       );
@@ -765,7 +765,7 @@ function NewTemplateWizard({
       const formData = new FormData();
       formData.append("file", file);
       const res = await api.post<FormTemplate>(
-        `/form-templates/${createdTemplate.id}/file`,
+        `/form-templates/${createdTemplate.id}/upload`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } },
       );
