@@ -14,12 +14,14 @@ const statusLabel: Record<JournalStatus, string> = {
   WRITING: "작성중",
   SUBMITTED: "검토대기",
   REVIEWED: "검토완료",
+  MODIFIED: "수정저장",
 };
 
 const statusVariant: Record<JournalStatus, string> = {
   WRITING: "bg-slate-100 text-slate-600",
   SUBMITTED: "bg-amber-100 text-amber-700",
   REVIEWED: "bg-green-100 text-green-700",
+  MODIFIED: "bg-purple-100 text-purple-700",
 };
 
 export default function SupervisorDashboard() {
@@ -45,7 +47,7 @@ export default function SupervisorDashboard() {
   const reviewableJournals = journals.filter((j) => j.status !== "WRITING");
 
   const studentCount = new Set(journals.map((j) => j.studentId)).size;
-  const pendingCount = journals.filter((j) => j.status === "SUBMITTED").length;
+  const pendingCount = journals.filter((j) => j.status === "SUBMITTED" || j.status === "MODIFIED").length;
   const reviewedCount = journals.filter((j) => j.status === "REVIEWED").length;
 
   const detailIdx = reviewableJournals.findIndex((j) => j.id === detailId);

@@ -59,7 +59,7 @@ public class JournalService {
     public List<JournalDto> findReviewable() {
         authz.assertStaff();
         return journalRepository.findByStatusIn(
-                        java.util.List.of(JournalStatus.SUBMITTED, JournalStatus.REVIEWED)).stream()
+                        java.util.List.of(JournalStatus.SUBMITTED, JournalStatus.REVIEWED, JournalStatus.MODIFIED)).stream()
                 .sorted((a, b) -> {
                     int s = a.getEnrollment().getStudent().getName()
                             .compareTo(b.getEnrollment().getStudent().getName());
@@ -95,8 +95,8 @@ public class JournalService {
         Journal journal = getJournalOrThrow(id);
         authz.assertJournalWriteByOwner(journalRepository.findOwnerStudentId(id).orElse(null));
 
-        if (journal.getStatus() != JournalStatus.WRITING) {
-            throw new IllegalStateException("제출된 일지는 수정할 수 없습니다.");
+        if (!isEditableById(id)) {
+            throw new IllegalStateException("실습 마감일이 지나 수정할 수 없습니다.");
         }
 
         if (request.getContent() != null) {
@@ -112,8 +112,11 @@ public class JournalService {
             journal.setEndDate(request.getEndDate());
         }
         if ("SUBMITTED".equals(request.getStatus())) {
-            journal.setStatus(JournalStatus.SUBMITTED);
+            journal.setStatus(journal.getStatus() == JournalStatus.REVIEWED
+                    ? JournalStatus.MODIFIED : JournalStatus.SUBMITTED);
             journal.setSubmittedDate(LocalDate.now());
+        } else if (journal.getStatus() == JournalStatus.REVIEWED && request.getContent() != null) {
+            journal.setStatus(JournalStatus.MODIFIED);
         }
 
         journal.touch();
@@ -163,8 +166,8 @@ public class JournalService {
             return response;
         }
 
-        if (journal.getStatus() != JournalStatus.WRITING) {
-            // 제출/검토 완료된 일지는 더 이상 수정 불가 (immutable 규칙)
+        if (!isEditableById(id)) {
+            // 실습 마감일이 지난 일지는 수정 불가
             response.put("error", 1);
             return response;
         }
@@ -180,12 +183,18 @@ public class JournalService {
                     String fileKey = ensureFileKey(journal);
                     storageService.putObject(fileKey, content, DOCX_CONTENT_TYPE);
                     journal.setFileSaved(true);
+                    JournalStatus cur = journal.getStatus();
                     if (Boolean.TRUE.equals(journal.getSubmitRequested())) {
-                        // 파일 저장과 동시에 제출 확정 -> 마지막 편집 유실 없음
-                        journal.setStatus(JournalStatus.SUBMITTED);
+                        // 저장 확정. 검토완료본을 다시 저장하면 수정저장(재검토 필요)
+                        journal.setStatus(cur == JournalStatus.REVIEWED
+                                ? JournalStatus.MODIFIED : JournalStatus.SUBMITTED);
                         journal.setSubmittedDate(LocalDate.now());
                         journal.setSubmitRequested(false);
-                        log.info("[callback] journalId={} 저장+제출확정 -> SUBMITTED (status={})", id, status);
+                        log.info("[callback] journalId={} 저장확정 -> {} (status={})", id, journal.getStatus(), status);
+                    } else if (cur == JournalStatus.REVIEWED) {
+                        // 명시 저장 없이도 검토완료본 내용이 바뀌면 수정저장
+                        journal.setStatus(JournalStatus.MODIFIED);
+                        log.info("[callback] journalId={} 검토완료본 수정 -> MODIFIED", id);
                     }
                     journal.touch();
                     journalRepository.save(journal);
@@ -242,8 +251,8 @@ public class JournalService {
     public void submit(Long id, String documentKey) {
         Journal journal = getJournalOrThrow(id);
         authz.assertJournalWriteByOwner(journalRepository.findOwnerStudentId(id).orElse(null));
-        if (journal.getStatus() != JournalStatus.WRITING) {
-            throw new IllegalStateException("이미 제출되었거나 검토 완료된 일지입니다.");
+        if (!isEditableById(id)) {
+            throw new IllegalStateException("실습 마감일이 지나 저장할 수 없습니다.");
         }
         journal.setSubmitRequested(true);
         journal.touch();
@@ -256,8 +265,8 @@ public class JournalService {
     public void saveDraft(Long id, String documentKey) {
         Journal journal = getJournalOrThrow(id);
         authz.assertJournalWriteByOwner(journalRepository.findOwnerStudentId(id).orElse(null));
-        if (journal.getStatus() != JournalStatus.WRITING) {
-            throw new IllegalStateException("제출된 일지는 수정/저장할 수 없습니다.");
+        if (!isEditableById(id)) {
+            throw new IllegalStateException("실습 마감일이 지나 저장할 수 없습니다.");
         }
         // 임시저장은 '제출 의도'가 아니다. 이전에 남은 제출대기 플래그를 해제해
         // 임시저장 콜백이 실수로 SUBMITTED 로 확정하는 것을 막는다.
@@ -296,13 +305,14 @@ public class JournalService {
     public void finalizeSubmit(Long id) {
         Journal j = getJournalOrThrow(id);
         authz.assertJournalWriteByOwner(journalRepository.findOwnerStudentId(id).orElse(null));
-        if (j.getStatus() == JournalStatus.WRITING && Boolean.TRUE.equals(j.getSubmitRequested())) {
-            j.setStatus(JournalStatus.SUBMITTED);
+        if (Boolean.TRUE.equals(j.getSubmitRequested())) {
+            j.setStatus(j.getStatus() == JournalStatus.REVIEWED
+                    ? JournalStatus.MODIFIED : JournalStatus.SUBMITTED);
             j.setSubmittedDate(LocalDate.now());
             j.setSubmitRequested(false);
             j.touch();
             journalRepository.save(j);
-            log.info("[submit] journalId={} 폴백 확정 -> SUBMITTED", id);
+            log.info("[submit] journalId={} 폴백 확정 -> {}", id, j.getStatus());
         }
     }
 
@@ -330,6 +340,12 @@ public class JournalService {
             log.error("[forcesave] CommandService 호출 실패 key={}", documentKey, e);
             return -1;
         }
+    }
+
+    /** 실습 마감일(enrollment.endDate)까지 수정 가능. endDate 없으면 제한 없음. */
+    private boolean isEditableById(Long id) {
+        java.time.LocalDate end = journalRepository.findDeadline(id).orElse(null);
+        return end == null || !java.time.LocalDate.now().isAfter(end);
     }
 
     private Journal getJournalOrThrow(Long id) {

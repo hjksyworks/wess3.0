@@ -23,12 +23,14 @@ const statusLabel: Record<JournalStatus, string> = {
   WRITING: "미작성",
   SUBMITTED: "작성완료",
   REVIEWED: "검토완료",
+  MODIFIED: "수정저장",
 };
 
 const statusVariant: Record<JournalStatus, string> = {
   WRITING: "bg-slate-100 text-slate-600",
   SUBMITTED: "bg-blue-100 text-blue-700",
   REVIEWED: "bg-green-100 text-green-700",
+  MODIFIED: "bg-purple-100 text-purple-700",
 };
 
 export default function StudentDashboard() {
@@ -95,8 +97,9 @@ export default function StudentDashboard() {
   });
   const cadence = journals.find((j) => j.cadence)?.cadence ?? "WEEKLY";
 
-  function kindOf(j: Journal): "rev" | "sub" | "draft" | "none" {
+  function kindOf(j: Journal): "rev" | "sub" | "draft" | "none" | "mod" {
     if (j.status === "REVIEWED") return "rev";
+    if (j.status === "MODIFIED") return "mod";
     if (j.status === "SUBMITTED") return "sub";
     if (Object.values(j.content ?? {}).some((v) => v && v.trim().length > 0)) return "draft";
     return "none";
@@ -106,6 +109,7 @@ export default function StudentDashboard() {
     sub: { bg: "bg-blue-50", fg: "text-blue-700", label: "제출완료" },
     draft: { bg: "bg-amber-50", fg: "text-amber-700", label: "작성중" },
     none: { bg: "bg-slate-50", fg: "text-slate-400", label: "미작성" },
+    mod: { bg: "bg-purple-50", fg: "text-purple-700", label: "수정저장" },
   };
   const dowLabels = ["일", "월", "화", "수", "목", "금", "토"];
   const ymd = (d: Date) =>
@@ -114,6 +118,8 @@ export default function StudentDashboard() {
     const [y, m, d] = str.split("-").map(Number);
     return new Date(y, m - 1, d);
   };
+  const practiceEnd = enrollment?.endDate ?? null;
+  const pastDeadline = practiceEnd != null && ymd(new Date()) > practiceEnd;
 
   function renderWeeklyList() {
     return (
@@ -130,7 +136,7 @@ export default function StudentDashboard() {
               </div>
               <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${st.bg} ${st.fg}`}>{st.label}</span>
               <Button size="sm" variant={j.status === "WRITING" ? "default" : "outline"} className="ml-auto" onClick={() => openWrite(j)}>
-                {j.status === "WRITING" ? "작성하기" : "보기"}
+                {pastDeadline ? "보기" : j.status === "WRITING" ? "작성하기" : "수정"}
               </Button>
             </div>
           );
@@ -205,7 +211,7 @@ export default function StudentDashboard() {
   }
 
   const currentJournal = journals.find((j) => j.id === writeId) ?? null;
-  const isEditable = currentJournal?.status === "WRITING";
+  const isEditable = currentJournal != null && !pastDeadline;
 
   const editorDocKey = currentJournal
     ? currentJournal.documentKey ??
@@ -477,7 +483,7 @@ export default function StudentDashboard() {
 
               {!isEditable && (
                 <p className="text-xs text-slate-400">
-                  {currentJournal.status === "REVIEWED" ? "검토 완료된" : "제출된"} 일지는 수정할 수 없습니다.
+                  실습 마감일이 지나 수정할 수 없습니다.
                 </p>
               )}
             </div>
@@ -524,7 +530,7 @@ export default function StudentDashboard() {
                 </Button>
                 <Button
                   onClick={() => {
-                    if (window.confirm("저장하면 이후 수정할 수 없습니다. 저장하시겠습니까?")) {
+                    if (window.confirm("저장하시겠습니까? (실습 마감일까지 다시 수정할 수 있습니다)")) {
                       submitFinal();
                     }
                   }}

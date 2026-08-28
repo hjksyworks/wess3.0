@@ -20,4 +20,7 @@ public interface JournalRepository extends JpaRepository<Journal, Long> {
 
     @Query("select j.enrollment.student.id from Journal j where j.id = :id")
     java.util.Optional<Long> findOwnerStudentId(@Param("id") Long id);
+
+    @Query("select j.enrollment.endDate from Journal j where j.id = :id")
+    java.util.Optional<java.time.LocalDate> findDeadline(@Param("id") Long id);
 }

@@ -2,7 +2,7 @@
 
 export type Role = "STUDENT" | "SUPERVISOR" | "ADMIN";
 
-export type JournalStatus = "WRITING" | "SUBMITTED" | "REVIEWED";
+export type JournalStatus = "WRITING" | "SUBMITTED" | "REVIEWED" | "MODIFIED";
 
 export interface AuthUser {
   id: number;
@@ -65,6 +65,9 @@ export interface Enrollment {
   subject: string;
   practiceName: string;
   totalWeeks: number;
+  startDate?: string;
+  endDate?: string;
+  cadence?: string;
   formTemplate: FormTemplate;
   studentId?: number;
   studentName?: string;
