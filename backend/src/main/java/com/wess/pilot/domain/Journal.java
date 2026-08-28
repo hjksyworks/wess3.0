@@ -82,6 +82,14 @@ public class Journal {
     @Column(name = "entry_date")
     private LocalDate entryDate;
 
+    /** 학생이 실제 처음 작성한 날 */
+    @Column(name = "written_date")
+    private LocalDate writtenDate;
+
+    /** 교수 정정요청 사유 */
+    @Column(name = "correction_reason", columnDefinition = "TEXT")
+    private String correctionReason;
+
     public void touch() {
         this.updatedAt = Instant.now();
     }

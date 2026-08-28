@@ -93,6 +93,14 @@ public class JournalController {
         return journalService.findById(id);
     }
 
+    /** POST /api/journals/{id}/request-correction — 교수 정정요청(사유 필수) */
+    @PostMapping("/{id}/request-correction")
+    public JournalDto requestCorrection(@PathVariable Long id,
+            @javax.validation.Valid @RequestBody com.wess.pilot.dto.CorrectionRequest request) {
+        journalService.requestCorrection(id, request.getReason());
+        return journalService.findById(id);
+    }
+
     /** GET /api/journals/{id}/pdf — 단건 PDF (관리자/지도자 개별 조회·다운로드) */
     @GetMapping("/{id}/pdf")
     public ResponseEntity<byte[]> pdf(

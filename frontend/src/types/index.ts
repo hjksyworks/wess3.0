@@ -2,7 +2,7 @@
 
 export type Role = "STUDENT" | "SUPERVISOR" | "ADMIN";
 
-export type JournalStatus = "WRITING" | "SUBMITTED" | "REVIEWED" | "MODIFIED";
+export type JournalStatus = "WRITING" | "SUBMITTED" | "REVIEWED" | "MODIFIED" | "CORRECTION_REQUESTED";
 
 export interface AuthUser {
   id: number;
@@ -80,6 +80,8 @@ export interface Journal {
   week: number;
   entryDate?: string;
   cadence?: string;
+  writtenDate?: string;
+  correctionReason?: string;
   status: JournalStatus;
   startDate?: string;
   endDate?: string;

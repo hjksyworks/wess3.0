@@ -59,7 +59,7 @@ public class JournalService {
     public List<JournalDto> findReviewable() {
         authz.assertStaff();
         return journalRepository.findByStatusIn(
-                        java.util.List.of(JournalStatus.SUBMITTED, JournalStatus.REVIEWED, JournalStatus.MODIFIED)).stream()
+                        java.util.List.of(JournalStatus.SUBMITTED, JournalStatus.REVIEWED, JournalStatus.MODIFIED, JournalStatus.CORRECTION_REQUESTED)).stream()
                 .sorted((a, b) -> {
                     int s = a.getEnrollment().getStudent().getName()
                             .compareTo(b.getEnrollment().getStudent().getName());
@@ -183,18 +183,24 @@ public class JournalService {
                     String fileKey = ensureFileKey(journal);
                     storageService.putObject(fileKey, content, DOCX_CONTENT_TYPE);
                     journal.setFileSaved(true);
+                    if (journal.getWrittenDate() == null) {
+                        journal.setWrittenDate(LocalDate.now()); // 첫 작성일 기록
+                    }
                     JournalStatus cur = journal.getStatus();
                     if (Boolean.TRUE.equals(journal.getSubmitRequested())) {
-                        // 저장 확정. 검토완료본을 다시 저장하면 수정저장(재검토 필요)
-                        journal.setStatus(cur == JournalStatus.REVIEWED
-                                ? JournalStatus.MODIFIED : JournalStatus.SUBMITTED);
+                        // 저장 확정. 검토완료본 재저장->수정저장, 정정요청본 재저장->제출(재검토)
+                        JournalStatus next = cur == JournalStatus.REVIEWED
+                                ? JournalStatus.MODIFIED : JournalStatus.SUBMITTED;
+                        journal.setStatus(next);
                         journal.setSubmittedDate(LocalDate.now());
                         journal.setSubmitRequested(false);
-                        log.info("[callback] journalId={} 저장확정 -> {} (status={})", id, journal.getStatus(), status);
+                        log.info("[callback] journalId={} 저장확정 -> {} (status={})", id, next, status);
                     } else if (cur == JournalStatus.REVIEWED) {
-                        // 명시 저장 없이도 검토완료본 내용이 바뀌면 수정저장
                         journal.setStatus(JournalStatus.MODIFIED);
                         log.info("[callback] journalId={} 검토완료본 수정 -> MODIFIED", id);
+                    } else if (cur == JournalStatus.CORRECTION_REQUESTED) {
+                        journal.setStatus(JournalStatus.SUBMITTED); // 정정 반영 -> 재검토 대기
+                        log.info("[callback] journalId={} 정정 반영 -> SUBMITTED", id);
                     }
                     journal.touch();
                     journalRepository.save(journal);
@@ -340,6 +346,21 @@ public class JournalService {
             log.error("[forcesave] CommandService 호출 실패 key={}", documentKey, e);
             return -1;
         }
+    }
+
+    /** 교수 정정요청: 제출/검토완료/수정저장 일지를 CORRECTION_REQUESTED 로 바꾸고 사유 저장 */
+    @Transactional
+    public void requestCorrection(Long id, String reason) {
+        authz.assertStaff();
+        Journal j = getJournalOrThrow(id);
+        if (j.getStatus() == JournalStatus.WRITING) {
+            throw new IllegalStateException("아직 제출되지 않은 일지에는 정정요청할 수 없습니다.");
+        }
+        j.setStatus(JournalStatus.CORRECTION_REQUESTED);
+        j.setCorrectionReason(reason);
+        j.touch();
+        journalRepository.save(j);
+        log.info("[correction] journalId={} 정정요청", id);
     }
 
     /** 실습 마감일(enrollment.endDate)까지 수정 가능. endDate 없으면 제한 없음. */

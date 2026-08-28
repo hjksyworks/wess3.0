@@ -15,6 +15,7 @@ const statusLabel: Record<JournalStatus, string> = {
   SUBMITTED: "검토대기",
   REVIEWED: "검토완료",
   MODIFIED: "수정저장",
+  CORRECTION_REQUESTED: "정정요청",
 };
 
 const statusVariant: Record<JournalStatus, string> = {
@@ -22,6 +23,7 @@ const statusVariant: Record<JournalStatus, string> = {
   SUBMITTED: "bg-amber-100 text-amber-700",
   REVIEWED: "bg-green-100 text-green-700",
   MODIFIED: "bg-purple-100 text-purple-700",
+  CORRECTION_REQUESTED: "bg-red-100 text-red-700",
 };
 
 export default function SupervisorDashboard() {
@@ -81,6 +83,28 @@ export default function SupervisorDashboard() {
       ),
     );
     setSaving(false);
+  }
+
+  async function requestCorrection() {
+    if (!detail) return;
+    if (!feedbackText.trim()) return;
+    if (!window.confirm("이 일지를 정정 요청하시겠습니까? 학생이 사유를 확인하고 수정합니다.")) return;
+    setSaving(true);
+    try {
+      await api.post(`/journals/${detail.id}/request-correction`, { reason: feedbackText });
+      setJournals((prev) =>
+        prev.map((j) =>
+          j.id === detail.id
+            ? { ...j, status: "CORRECTION_REQUESTED" as JournalStatus, correctionReason: feedbackText }
+            : j,
+        ),
+      );
+      setDetailId(null);
+    } catch {
+      alert("정정요청에 실패했습니다. 제출된 일지만 정정요청할 수 있습니다.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   React.useEffect(() => {
@@ -238,7 +262,7 @@ export default function SupervisorDashboard() {
               </h3>
               <Textarea
                 rows={10}
-                placeholder="학생에게 전달할 피드백을 작성해주세요."
+                placeholder="피드백 또는 정정 사유를 작성하세요."
                 value={feedbackText}
                 onChange={(e) => setFeedbackText(e.target.value)}
                 className="flex-1 resize-none"
@@ -251,8 +275,16 @@ export default function SupervisorDashboard() {
             <Button variant="outline" onClick={() => setDetailId(null)}>
               닫기
             </Button>
+            <Button
+              variant="outline"
+              className="border-red-300 text-red-600 hover:bg-red-50"
+              onClick={requestCorrection}
+              disabled={saving || !feedbackText.trim()}
+            >
+              정정요청
+            </Button>
             <Button onClick={submitFeedback} disabled={saving || !feedbackText.trim()}>
-              {detail.status === "REVIEWED" ? "피드백 수정" : "피드백 등록"}
+              {detail.status === "REVIEWED" ? "피드백 수정" : "검토완료"}
             </Button>
           </div>
         </div>

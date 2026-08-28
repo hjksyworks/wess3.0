@@ -27,6 +27,8 @@ public class JournalDto {
     private LocalDate submittedDate;
     private LocalDate entryDate;
     private String cadence;
+    private LocalDate writtenDate;
+    private String correctionReason;
     private boolean hasFeedback;
     private Long studentId;
     private String studentName;
@@ -53,6 +55,8 @@ public class JournalDto {
         dto.setContent(journal.getContent());
         dto.setSubmittedDate(journal.getSubmittedDate());
         dto.setEntryDate(journal.getEntryDate());
+        dto.setWrittenDate(journal.getWrittenDate());
+        dto.setCorrectionReason(journal.getCorrectionReason());
         com.wess.pilot.domain.FormTemplate _ft = journal.getEnrollment().getFormTemplate();
         dto.setCadence(_ft != null && _ft.getCadence() != null ? _ft.getCadence().name() : "WEEKLY");
         dto.setStudentId(journal.getEnrollment().getStudent().getId());

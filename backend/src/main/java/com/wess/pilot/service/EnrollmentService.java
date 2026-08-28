@@ -101,27 +101,25 @@ public class EnrollmentService {
             if (start == null) {
                 throw new IllegalArgumentException("일별 양식은 실습 시작일(startDate)이 필요합니다.");
             }
-            for (int w = 0; w < request.getTotalWeeks(); w++) {
-                LocalDate weekStart = start.plusWeeks(w);
-                for (int d = 0; d < 5; d++) {
-                    LocalDate day = weekStart.plusDays(d);
-                    if (request.getEndDate() != null && day.isAfter(request.getEndDate())) {
-                        break;
-                    }
-                    Journal journal = new Journal();
-                    journal.setEnrollment(saved);
-                    journal.setWeek(w + 1);
-                    journal.setEntryDate(day);
-                    journal.setStartDate(day);
-                    journal.setEndDate(day);
-                    journal.setStatus(JournalStatus.WRITING);
-                    journal.setContent(new LinkedHashMap<>());
-                    journal.setFileKey("");
-                    journal.setFileName(day + "_일지.docx");
-                    journal.setFileSaved(false);
-                    journal.setUpdatedAt(Instant.now());
-                    journals.add(journal);
-                }
+            LocalDate end = request.getEndDate() != null
+                    ? request.getEndDate() : start.plusWeeks(request.getTotalWeeks()).minusDays(1);
+            LocalDate day = start;
+            while (!day.isAfter(end)) { // 주말 포함 전일 생성 (주말 실습 케이스)
+                long fromStart = java.time.temporal.ChronoUnit.DAYS.between(start, day);
+                Journal journal = new Journal();
+                journal.setEnrollment(saved);
+                journal.setWeek((int) (fromStart / 7) + 1);
+                journal.setEntryDate(day);
+                journal.setStartDate(day);
+                journal.setEndDate(day);
+                journal.setStatus(JournalStatus.WRITING);
+                journal.setContent(new LinkedHashMap<>());
+                journal.setFileKey("");
+                journal.setFileName(day + "_일지.docx");
+                journal.setFileSaved(false);
+                journal.setUpdatedAt(Instant.now());
+                journals.add(journal);
+                day = day.plusDays(1);
             }
         } else {
             LocalDate start = request.getStartDate();
