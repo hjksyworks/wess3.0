@@ -81,6 +81,10 @@ public class FormTemplateService {
             template.setName(request.getName());
         if (request.getFields() != null)
             template.setFields(request.getFields());
+        // 수정 시 작성 주기가 반영되지 않던 문제(요청값을 무시하고 기존 값 유지) 수정.
+        // parseCadence 로 DAILY/WEEKLY 외 값은 400 으로 거른다.
+        if (request.getCadence() != null && !request.getCadence().isBlank())
+            template.setCadence(parseCadence(request.getCadence()));
         return FormTemplateDto.from(formTemplateRepository.save(template));
     }
 
