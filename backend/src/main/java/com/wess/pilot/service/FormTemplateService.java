@@ -61,9 +61,9 @@ public class FormTemplateService {
         template.setSemester(request.getSemester());
         template.setSubject(request.getSubject());
         template.setName(request.getName());
+        validateFields(request.getFields());
         template.setFields(request.getFields() != null ? request.getFields() : new ArrayList<>());
-        template.setCadence("DAILY".equalsIgnoreCase(request.getCadence())
-                ? com.wess.pilot.domain.JournalCadence.DAILY : com.wess.pilot.domain.JournalCadence.WEEKLY);
+        template.setCadence(parseCadence(request.getCadence()));
         template.setCreatedDate(LocalDate.now());
         return FormTemplateDto.from(formTemplateRepository.save(template));
     }
@@ -71,6 +71,7 @@ public class FormTemplateService {
     @Transactional
     public FormTemplateDto update(Long id, FormTemplateCreateRequest request) {
         FormTemplate template = getOrThrow(id);
+        validateFields(request.getFields());
         if (request.getYear() != null) template.setYear(request.getYear());
         if (request.getSemester() != null && !request.getSemester().isBlank())
             template.setSemester(request.getSemester());
@@ -285,4 +286,72 @@ public class FormTemplateService {
         return java.net.URI.create(sb.toString());
     }
 
+
+    // ─── 입력 검증 ────────────────────────────────────────────────────────────
+
+    private static final java.util.Set<String> FIELD_TYPES =
+            java.util.Set.of("text", "textarea", "date", "combo", "checkbox");
+    private static final java.util.regex.Pattern KEY_PATTERN =
+            java.util.regex.Pattern.compile("^[A-Za-z0-9_]{1,40}$");
+
+    /** 작성 주기: DAILY/WEEKLY 만 허용(미지정은 WEEKLY). 오타를 조용히 삼키지 않는다. */
+    private com.wess.pilot.domain.JournalCadence parseCadence(String cadence) {
+        if (cadence == null || cadence.isBlank()) {
+            return com.wess.pilot.domain.JournalCadence.WEEKLY;
+        }
+        try {
+            return com.wess.pilot.domain.JournalCadence.valueOf(cadence.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("작성 주기는 DAILY 또는 WEEKLY 여야 합니다. 입력값=" + cadence);
+        }
+    }
+
+    /**
+     * 필드 정의 검증. 여기서 막지 않으면 잘못된 값이 DOCX 생성/DB 추출까지 흘러간다.
+     * (템플릿 파일 형식은 fields 가 비어 있을 수 있으므로 빈 목록은 허용)
+     */
+    private void validateFields(java.util.List<com.wess.pilot.domain.FormField> fields) {
+        if (fields == null || fields.isEmpty()) {
+            return;
+        }
+        java.util.Set<String> seenKeys = new java.util.HashSet<>();
+        for (int i = 0; i < fields.size(); i++) {
+            com.wess.pilot.domain.FormField f = fields.get(i);
+            String at = (i + 1) + "번째 항목";
+            if (f.getLabel() == null || f.getLabel().isBlank()) {
+                throw new IllegalArgumentException(at + "의 항목명을 입력해 주세요.");
+            }
+            if (f.getKey() == null || f.getKey().isBlank()) {
+                throw new IllegalArgumentException(at + "의 키(key)를 입력해 주세요.");
+            }
+            String key = f.getKey().trim();
+            if (!KEY_PATTERN.matcher(key).matches()) {
+                throw new IllegalArgumentException(
+                        at + "의 키(key)는 영문/숫자/밑줄 1~40자만 사용할 수 있습니다. 입력값=" + key);
+            }
+            if (!seenKeys.add(key)) {
+                // 키가 겹치면 DOCX 폼 태그와 DB 저장 키가 충돌해 내용이 덮어써진다.
+                throw new IllegalArgumentException("키(key)가 중복되었습니다: " + key);
+            }
+            if (f.getType() == null || !FIELD_TYPES.contains(f.getType())) {
+                throw new IllegalArgumentException(
+                        at + "의 타입이 올바르지 않습니다. 허용값=" + FIELD_TYPES + ", 입력값=" + f.getType());
+            }
+            checkRange(at, "전체너비(%)", f.getWidth(), 10, 100);
+            checkRange(at, "라벨너비(%)", f.getLabelWidth(), 1, 99);
+            checkRange(at, "높이(pt)", f.getHeight(), 20, 300);
+            String rg = f.getRowGroup();
+            if (rg != null && !rg.isBlank() && !rg.trim().matches("^\\d{1,3}(-\\d{1,3})?$")) {
+                throw new IllegalArgumentException(
+                        at + "의 행-셀은 1-1 형식(행번호-셀순서)이어야 합니다. 입력값=" + rg);
+            }
+        }
+    }
+
+    private void checkRange(String at, String name, int value, int min, int max) {
+        if (value != 0 && (value < min || value > max)) {
+            throw new IllegalArgumentException(
+                    at + "의 " + name + "은(는) " + min + "~" + max + " 범위여야 합니다. 입력값=" + value);
+        }
+    }
 }

@@ -32,6 +32,28 @@ const TYPE_LABELS: Record<FieldType, string> = {
   checkbox: "체크박스",
 };
 
+const KEY_RE = /^[A-Za-z0-9_]{1,40}$/;
+const ROWGROUP_RE = /^\d{1,3}(-\d{1,3})?$/;
+
+/** 저장 전 필드 검증. 백엔드와 동일 규칙으로 먼저 걸러 즉시 안내한다. */
+function validateFields(fields: FormField[]): string | null {
+  const seen = new Set<string>();
+  for (let i = 0; i < fields.length; i++) {
+    const f = fields[i];
+    const at = `${i + 1}번째 항목`;
+    if (!f.label?.trim()) return `${at}의 항목명을 입력해주세요.`;
+    if (!f.key?.trim()) return `${at}의 키(key)를 입력해주세요.`;
+    const key = f.key.trim();
+    if (!KEY_RE.test(key)) return `${at}의 키(key)는 영문/숫자/밑줄 1~40자만 사용할 수 있습니다. (입력: ${key})`;
+    if (seen.has(key)) return `키(key)가 중복되었습니다: ${key}`;
+    seen.add(key);
+    const rg = (f.rowGroup ?? "").trim();
+    if (rg && !ROWGROUP_RE.test(rg)) return `${at}의 행-셀은 1-1 형식(행번호-셀순서)이어야 합니다. (입력: ${rg})`;
+  }
+  return null;
+}
+
+
 // ─── 메인 컴포넌트 ──────────────────────────────────────────────────────────
 
 interface Props {
@@ -247,8 +269,9 @@ function TemplateEditPanel({
       alert("양식명과 교과목을 입력해주세요.");
       return;
     }
-    if (fields.some((f) => !f.key.trim() || !f.label.trim())) {
-      alert("모든 필드의 키와 항목명을 입력해주세요.");
+    const err = validateFields(fields);
+    if (err) {
+      alert(err);
       return;
     }
     setSaving(true);
@@ -713,9 +736,16 @@ function NewTemplateWizard({
       alert("양식명과 교과목을 입력해주세요.");
       return;
     }
-    if (mode === "columns" && (fields.length === 0 || fields.some((f) => !f.key.trim() || !f.label.trim()))) {
-      alert("모든 필드의 키와 항목명을 입력해주세요.");
-      return;
+    if (mode === "columns") {
+      if (fields.length === 0) {
+        alert("항목을 1개 이상 추가해주세요.");
+        return;
+      }
+      const err = validateFields(fields);
+      if (err) {
+        alert(err);
+        return;
+      }
     }
     setSubmitting(true);
     try {
